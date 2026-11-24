@@ -19,6 +19,7 @@ REL = "https://github.com/nflverse/nflverse-data/releases/download"
 def _dl(url, path, log, force=False):
     if os.path.exists(path) and not force:
         return
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     tmp = path + ".part"
     r = subprocess.run(["curl", "-sfL", "-o", tmp, url])
     if r.returncode != 0:

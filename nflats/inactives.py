@@ -71,6 +71,7 @@ def merge_into_injuries(season, week, log=print):
 def check(now=None):
     """Decide whether a game-day rebuild is worthwhile right now."""
     now = now or datetime.now(timezone.utc)
+    os.makedirs(data.DATA_DIR, exist_ok=True)
     subprocess.run(["curl", "-sfL", "-o", os.path.join(data.DATA_DIR, "games.csv"), data.GAMES_URL], check=True)
     g = data.load_games()
     g = g[g.result.isna() & g.gametime.notna()]
