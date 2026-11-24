@@ -1,0 +1,29 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NFL Board: create PIN</title><meta name="robots" content="noindex">
+<style>body{margin:0;font:16px/1.5 system-ui,sans-serif;background:#0f6b3a;color:#fff;padding:32px 20px}.w{max-width:440px;margin:0 auto}
+input,textarea,button{font:16px system-ui;border-radius:8px;border:0;padding:12px;width:100%;box-sizing:border-box;margin-top:8px}
+button{background:#fff;color:#0f6b3a;font-weight:700;min-height:48px}textarea{font:12px ui-monospace,monospace;height:140px}.m{color:#ffd6d0}.ok{color:#c8f7d8}small{color:#d6eadd}</style></head>
+<body><div class="w"><h1>Create your PIN</h1>
+<p>This runs entirely on your phone. Your PIN is never sent anywhere.</p>
+<label>PIN (6+ characters; letters make it much stronger)<input id="p1" type="password" autocomplete="new-password"></label>
+<label>Confirm PIN<input id="p2" type="password" autocomplete="new-password"></label>
+<button id="go">Create lock</button><p id="msg" class="m"></p>
+<div id="out" style="display:none"><p class="ok"><b>Done.</b> Copy the text below and send it to Claude. It contains no PIN, just a locked key, so it's safe to share.</p>
+<textarea id="blob" readonly></textarea><button id="copy">Copy</button>
+<small>Keep your PIN somewhere safe. If you forget it, just create a new one here and send the new text.</small></div></div>
+<script>
+const b64=u=>btoa(String.fromCharCode(...new Uint8Array(u)));
+async function make(pin){const kp=await crypto.subtle.generateKey({name:'RSA-OAEP',modulusLength:2048,publicExponent:new Uint8Array([1,0,1]),hash:'SHA-256'},true,['encrypt','decrypt']);
+ const spki=await crypto.subtle.exportKey('spki',kp.publicKey),pk8=await crypto.subtle.exportKey('pkcs8',kp.privateKey);
+ const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12)),iter=600000;
+ const base=await crypto.subtle.importKey('raw',new TextEncoder().encode(pin),'PBKDF2',false,['deriveBits']);
+ const bits=await crypto.subtle.deriveBits({name:'PBKDF2',salt,iterations:iter,hash:'SHA-256'},base,256);
+ const kk=await crypto.subtle.importKey('raw',bits,'AES-GCM',false,['encrypt']);
+ const enc=await crypto.subtle.encrypt({name:'AES-GCM',iv},kk,pk8);
+ return {v:1,iter,salt:b64(salt),iv:b64(iv),priv:b64(enc),pub:b64(spki)}}
+document.getElementById('go').onclick=async()=>{const a=p1.value,b=p2.value,m=document.getElementById('msg');
+ if(a.length<6){m.textContent='Use at least 6 characters.';return}if(a!==b){m.textContent="PINs don't match.";return}
+ if(!window.crypto||!crypto.subtle){m.textContent='Open this page from its https:// address.';return}
+ m.textContent='Creating… (a few seconds)';try{const L=await make(a);blob.value='NFLLOCK:'+btoa(JSON.stringify(L));out.style.display='';m.textContent='';p1.value=p2.value=''}catch(e){m.textContent='Something went wrong: '+e.message}};
+document.getElementById('copy').onclick=async()=>{try{await navigator.clipboard.writeText(blob.value);copy.textContent='Copied'}catch(e){blob.select();copy.textContent='Selected: copy it manually'}};
+</script></body></html>

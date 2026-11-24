@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#0f6b3a"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="NFL Board">
+<meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#0f6b3a"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="NFL Board">
 <link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" href="icon-180.png">
 <title>NFL ATS Board</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -77,7 +77,19 @@ textarea{font:14px ui-monospace,monospace;width:100%;border:1px solid var(--line
 @media(max-width:600px){table{font-size:13px}.stack thead{display:none}.stack tr{display:grid;padding-block:10px}.stack td{display:flow-root;border:0;padding:3px 0;padding-inline-start:8em;text-align:start}.stack td::before{content:attr(data-l);float:inline-start;width:7.5em;margin-inline-start:-8em;white-space:normal}.stack td:empty{display:none}}
 </style><script>new MutationObserver(()=>{for(const c of document.querySelectorAll('.stack td:not([data-l])')){let i=0,p=c;while(p=p.previousElementSibling)i+=p.colSpan;c.dataset.l=c.closest('table').rows[0].cells[i]?.textContent||''}}).observe(document,{childList:true,subtree:true})</script></head><body>
 
+<div id="lockScr" style="display:none;position:fixed;inset:0;z-index:50;background:var(--turf);color:#fff;padding:max(10vh,40px) 24px">
+ <form id="lockForm" style="max-width:360px;margin:0 auto" autocomplete="on">
+  <h1 style="font-size:38px">NFL Board</h1>
+  <p style="color:#e7f3eb">Enter your PIN to unlock this week's board.</p>
+  <input type="text" name="username" value="nfl-board" autocomplete="username" hidden>
+  <input id="lockPin" type="password" autocomplete="current-password" style="width:100%;font-size:22px;letter-spacing:.2em" aria-label="PIN" required>
+  <label style="color:#fff;display:flex;gap:8px;align-items:center;margin-top:12px"><input type="checkbox" id="lockRem" checked style="width:22px;height:22px;min-height:0"> Remember on this device</label>
+  <button class="pri" style="margin-top:14px;width:100%;background:#fff;color:var(--turf);font-weight:700" id="lockBtn">Unlock</button>
+  <p id="lockMsg" style="color:#ffd6d0;min-height:1.5em"></p>
+ </form>
+</div>
 <header class="hero band"><div class="wrap">
+<button id="lockNow" style="float:right;background:transparent;color:#fff;border-color:#ffffff88;display:none">Lock</button>
 <h1 id="title">Week board loading…</h1>
 <p id="sub">30 candidate signals were tested week by week over 12 seasons, with a false-discovery correction. Picks are tiered by how they actually performed at posted prices. Cover odds use real final margins, adjusted for the total and AccuWeather forecasts. Your news is added on top.</p>
 <div class="kpis" id="kpis"></div>
@@ -287,6 +299,28 @@ function loadFeed(txt,source){try{const {out,ts,matched}=parseFeed(txt);LIVE=out
   LS.set('nflats_live_'+D.season+'_'+D.week,{txt:txt.length<400000?txt:null});
   $('#ostat').textContent=`Lines loaded from ${source}: ${matched} games, last book update ${new Date(ts).toLocaleString()}. Each game is priced at its best available book; ${SNAPS.length} pull${SNAPS.length>1?'s':''} saved this week for movement.`;
   $('#opaste').value='';render();toast('Live odds loaded')}catch(e){$('#ostat').textContent=e.message;toast('Could not read that feed')}}
+const b64d=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0)),b64e=u=>btoa(String.fromCharCode(...u));
+async function deriveBits(pin,L){const base=await crypto.subtle.importKey('raw',new TextEncoder().encode(pin),'PBKDF2',false,['deriveBits']);
+ return new Uint8Array(await crypto.subtle.deriveBits({name:'PBKDF2',salt:b64d(L.salt),iterations:L.iter,hash:'SHA-256'},base,256))}
+async function openWith(bits,P){const L=P.lock,E=P.enc;
+ const kk=await crypto.subtle.importKey('raw',bits,'AES-GCM',false,['decrypt']);
+ const pk8=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64d(L.iv)},kk,b64d(L.priv));
+ const priv=await crypto.subtle.importKey('pkcs8',pk8,{name:'RSA-OAEP',hash:'SHA-256'},false,['decrypt']);
+ const raw=await crypto.subtle.decrypt({name:'RSA-OAEP'},priv,b64d(E.wk));
+ const dk=await crypto.subtle.importKey('raw',raw,'AES-GCM',false,['decrypt']);
+ const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64d(E.iv)},dk,b64d(E.ct));
+ return JSON.parse(new TextDecoder().decode(pt))}
+function getWeek(){const el=document.getElementById('weekdata');if(el)return Promise.resolve(JSON.parse(el.textContent));
+ const P=JSON.parse(document.getElementById('weekenc').textContent);$('#lockNow').style.display='';
+ return new Promise(res=>{const scr=$('#lockScr');
+  const show=()=>{scr.style.display='';setTimeout(()=>$('#lockPin').focus(),50)};
+  $('#lockForm').addEventListener('submit',async e=>{e.preventDefault();const pin=$('#lockPin').value;if(!pin)return;
+   $('#lockBtn').disabled=true;$('#lockMsg').textContent='Unlocking…';
+   try{const bits=await deriveBits(pin,P.lock);const d=await openWith(bits,P);
+    if($('#lockRem').checked)LS.set('nflats_lockkey',b64e(bits));scr.style.display='none';$('#lockPin').value='';res(d)}
+   catch(err){$('#lockMsg').textContent='Wrong PIN. Try again.';$('#lockPin').select()}finally{$('#lockBtn').disabled=false}});
+  const saved=LS.get('nflats_lockkey',null);
+  if(saved)openWith(b64d(saved),P).then(res).catch(()=>{try{localStorage.removeItem('nflats_lockkey')}catch(e){}show()});else show()})}
 function adj(g){return ADJ[g.game_id]||(ADJ[g.game_id]={})}
 function qbVal(team,id,listed){if(!id)return D.qb_prior;if(listed&&listed.id===id)return listed.val;const q=(D.team_qbs[team]||[]).find(x=>x.id===id);return q?q.val:D.qb_prior}
 function calc(g){
@@ -463,7 +497,7 @@ $('#board').addEventListener('click',e=>{const t=e.target.closest('button');if(!
  else if(t.dataset.log){const g=D.games.find(x=>x.game_id===t.dataset.log),r=calc(g);const home=r.side==='home';
   saveBet({id:'b'+Date.now(),ts:Date.now(),wk:`${D.season} W${D.week}`,game:g.game_id,team:home?g.home:g.away,opp:home?g.away:g.home,line:home?-r.L:r.L,odds:home?r.oh:r.oa,book:r.book||'',stake:Math.max(1,Math.round(r.stake||S.bank*.01)),p:r.pw,close:'',res:''});toast('Bet logged below')}});
 $('#okey').addEventListener('input',e=>{const k=e.target.value.trim();$('#ofeed').href=k?feedURL(k):'#';LS.set('nflats_okey',k)});
-$('#oRefresh').addEventListener('click',refreshLines);$('#wRefresh').addEventListener('click',refreshWeather);
+$('#oRefresh').addEventListener('click',refreshLines);$('#lockNow').addEventListener('click',()=>{try{localStorage.removeItem('nflats_lockkey')}catch(e){}location.reload()});$('#wRefresh').addEventListener('click',refreshWeather);
 $('#bkExport').addEventListener('click',exportBackup);$('#bkImport').addEventListener('change',e=>{if(e.target.files[0])importBackup(e.target.files[0])});
 $('#ofeed').addEventListener('click',e=>{if(!$('#okey').value.trim()){e.preventDefault();toast('Enter your API key first')}});
 $('#opaste').addEventListener('paste',()=>setTimeout(()=>{const v=$('#opaste').value.trim();if(v)loadFeed(v,'paste')},0));
@@ -479,7 +513,7 @@ for(const id of ['k','minev','bank','kf','sort','stOn'])$('#'+id).addEventListen
 $('#reset').addEventListener('click',()=>{ADJ={};render();toast('Adjustments cleared')});
 
 /* ---------- boot ---------- */
-Promise.resolve(JSON.parse(document.getElementById('weekdata').textContent)).then(d=>{D=d;
+getWeek().then(d=>{D=d;
  const wx=LS.get('nflats_wx_'+D.season+'_'+D.week,null);if(wx)for(const g of D.games)if(wx.g[g.game_id]){const w=wx.g[g.game_id];g.weather=w;g.eff_total=g.total_line==null?44:g.total_line-(w.wind>=10?1.5:0);g.pmf_group=g.eff_total<=43.5?'lo':'hi';D.weather_source='Open-Meteo, '+new Date(wx.ts).toLocaleString()}
  S=Object.assign({k:D.k_gap,minev:2,bank:1000,kf:.25,stOn:1},LS.get('nflats_set2',{}));
  $('#k').value=S.k;$('#stOn').value=S.stOn;$('#minev').value=S.minev;$('#bank').value=S.bank;$('#kf').value=S.kf;$('#kv').textContent=(+S.k).toFixed(2)+(Math.abs(S.k-D.k_gap)<.005?' (backtest)':'');
