@@ -118,6 +118,9 @@ textarea{font:14px ui-monospace,monospace;width:100%;border:1px solid var(--line
  <button id="wRefresh">Refresh weather</button>
 </div>
 <p class="note" id="ostat">Enter your key and press Refresh lines. Each refresh costs about 4 credits (US and EU books × spreads and totals).</p>
+<details id="mybooks" style="margin-top:6px"><summary class="small"><b>My sportsbooks</b> <span id="mbN" class="mut"></span></summary>
+ <div class="chips" id="mbList" style="margin-top:8px"></div>
+ <p class="note">Picks are priced only at the books you check. The defaults are regulated books available in Arizona; uncheck any you don't have an account with. Pinnacle and offshore books still count toward the market consensus.</p></details>
 <details id="ofallback" style="margin-top:6px"><summary class="small"><b>If Refresh lines fails</b></summary>
  <p class="small mut">Backup route: open the feed, select all, copy, and paste it below.</p>
  <div class="row"><a id="ofeed" class="btnlink" href="#" target="_blank" rel="noopener">Open odds feed ↗</a>
@@ -272,7 +275,7 @@ function matchHTML(g){const M=g.matchup;if(!M)return '';const R=ranks(),H=g.home
 function booksHTML(g,r){const lv=r.lv;if(!lv)return '';const f1=v=>v==null?'—':fmtS(v);
  const rows=lv.books.slice().sort((x,y)=>(x.key==='pinnacle')-(y.key==='pinnacle')||x.title.localeCompare(y.title));
  return `<p class="note" style="margin-top:0">Pulled ${esc(ago(lv.ts))}. Green = the line the pick uses.</p><div class="scroll"><table class="bd bk"><tr><td class="mut small">Book</td><td class="mut small">${esc(g.home)} spread</td><td class="mut small">${esc(g.home)} / ${esc(g.away)} price</td><td class="mut small">Total</td></tr>
- ${rows.map(b=>`<tr><td>${esc(b.title)}${b.key==='pinnacle'?' <span class="mut small">(sharp)</span>':''}</td><td class="${r.book===b.title?'best':''}">${b.L==null?'—':esc(fmtS(-b.L))}</td><td>${b.oh?esc(odds(b.oh)):'—'} / ${b.oa?esc(odds(b.oa)):'—'}</td><td>${b.tot??'—'}</td></tr>`).join('')}
+ ${rows.map(b=>`<tr><td>${esc(b.title)}${b.key==='pinnacle'?' <span class="mut small">(sharp)</span>':''}${myBooks().has(b.key)?'':' <span class="mut small">· not yours</span>'}</td><td class="${r.book===b.title?'best':''}">${b.L==null?'—':esc(fmtS(-b.L))}</td><td>${b.oh?esc(odds(b.oh)):'—'} / ${b.oa?esc(odds(b.oa)):'—'}</td><td>${b.tot??'—'}</td></tr>`).join('')}
  <tr class="tot"><td>Consensus (median)</td><td>${esc(f1(-lv.cons))}</td><td></td><td>${lv.tot??'—'}</td></tr></table></div>
  ${lv.pin!=null&&Math.abs(lv.pin-lv.cons)>=0.5?`<p class="note">Pinnacle is ${Math.abs(lv.pin-lv.cons)} pts ${lv.pin>lv.cons?'more '+esc(g.home):'more '+esc(g.away)}-friendly than the consensus.</p>`:''}`}
 function indHTML(g,r){const I=g.indicators||{},L=D.signal_labels,sig=Object.fromEntries(D.signals.map(x=>[x.signal,x]));const a=adj(g);
@@ -320,6 +323,12 @@ function parseFeed(txt){let j;try{j=JSON.parse(txt)}catch(e){throw new Error('Th
   out[g.game_id]={books,cons:med(books.map(b=>b.L)),tot:med(books.map(b=>b.tot)),pin:pin?pin.L:null}}
  if(!matched)throw new Error('None of the feed\'s games match this week\'s board.');
  const ts=maxTs||Date.now();for(const k in out)out[k].ts=ts;return {out,ts,matched}}
+const AZ_BOOKS={draftkings:'DraftKings',fanduel:'FanDuel',betmgm:'BetMGM',williamhill_us:'Caesars',betrivers:'BetRivers',espnbet:'ESPN BET / theScore',fanatics:'Fanatics',hardrockbet:'Hard Rock Bet'};
+let MYB=null;const myBooks=()=>new Set(MYB||Object.keys(AZ_BOOKS));
+function renderBooks(){const seen={...AZ_BOOKS};for(const v of Object.values(LIVE))for(const b of v.books)if(!seen[b.key])seen[b.key]=b.title;
+ const mine=myBooks(),keys=Object.keys(seen).sort((a,b)=>(mine.has(b)-mine.has(a))||seen[a].localeCompare(seen[b]));
+ $('#mbList').innerHTML=keys.map(k=>`<label style="display:inline-flex;gap:6px;align-items:center;border:1px solid var(--line);border-radius:6px;padding:4px 9px;min-height:36px;font-size:14px;color:var(--ink)"><input type="checkbox" data-bk="${esc(k)}" ${mine.has(k)?'checked':''} style="width:18px;height:18px;min-height:0">${esc(seen[k])}</label>`).join('');
+ $('#mbN').textContent=`(${[...mine].filter(k=>seen[k]).length} selected)`}
 function firstSeen(id){for(const sn of SNAPS){const x=sn.g[id];if(x&&x.L!=null)return {L:x.L,tot:x.tot,ts:sn.ts}}return null}
 async function saveSnaps(){const body={snaps:SNAPS.slice(-60)};LS.set('nflats_odds_'+D.season+'_'+D.week,body);if(oddsDoc){try{await oddsDoc.set(body)}catch(e){}}}
 async function refreshLines(){const k=$('#okey').value.trim();if(!k){toast('Enter your API key first');$('#okey').focus();return}
@@ -431,7 +440,7 @@ function calc(g){
  let L,oh,oa,p,evH,evA,book=null;
  const manual=a.book!=null&&a.book!=='';
  if(!manual&&lv&&lv.books.length){let best=null;
-  for(const bk of lv.books){if(bk.L==null)continue;const q=cover(proj,bk.L,g.pmf_group);const eh=q.h*payout(bk.oh)-q.a,ea=q.a*payout(bk.oa)-q.h;const m=Math.max(eh,ea);
+  const mine=myBooks();for(const bk of lv.books){if(bk.L==null||!mine.has(bk.key))continue;const q=cover(proj,bk.L,g.pmf_group);const eh=q.h*payout(bk.oh)-q.a,ea=q.a*payout(bk.oa)-q.h;const m=Math.max(eh,ea);
    if(!best||m>best.m)best={m,bk,q,eh,ea}}
   if(best){L=best.bk.L;oh=best.bk.oh;oa=best.bk.oa;p=best.q;evH=best.eh;evA=best.ea;book=best.bk.title}}
  if(p==null){L=manual?-a.book:M;oh=+a.oh||(lv?-110:g.home_spread_odds)||-110;oa=+a.oa||(lv?-110:g.away_spread_odds)||-110;p=cover(proj,L,g.pmf_group);evH=p.h*payout(oh)-p.a;evA=p.a*payout(oa)-p.h}
@@ -479,7 +488,7 @@ function rowHTML(g,r){
  let verdict,sub;const noLine=!r.lv&&(adj(g).book==null||adj(g).book==='')&&g.spread_line==null;
  if(noLine){verdict='No line yet';sub='Press Refresh lines once books post this game'}
  else if(r.tag==='pass'){const t=betAt(g,r);verdict='Pass';sub=t?`Becomes a bet at ${pickLbl(g,t.side,t.L)} (−110) or better`:'No bet within 3 points of the current line'}
- else{verdict=`${r.tag==='a'?'Bet':'Lean'} ${N(pickT)} ${fmtS(pl)}`;sub=`${odds(o)}${r.book?' at '+r.book:''}${r.stake>0?' · stake $'+r.stake.toFixed(0):''}${r.tag==='b'?' · Tier B has been about break-even in testing, so bet small or skip':''}`}
+ else{verdict=`${r.tag==='a'?'Bet':'Lean'} ${N(pickT)} ${fmtS(pl)}`;sub=`${odds(o)}${r.book?' at '+r.book:(r.lv?' at the consensus (none of your books lists this game)':'')}${r.stake>0?' · stake $'+r.stake.toFixed(0):''}${r.tag==='b'?' · Tier B has been about break-even in testing, so bet small or skip':''}`}
  const evs=(r.ev*100).toFixed(1).replace('-','−');
  return `<summary><span class="c-top"><span><span class="c-when">${esc(koText(g))}</span><span class="c-mt">${esc(N(g.away))} @ ${esc(N(g.home))}</span><span class="c-meta">${esc(meta)}</span></span>
  <span class="tag ${r.tag}">${r.tag==='a'?'TIER A':r.tag==='b'?'TIER B':'PASS'}</span></span>
@@ -542,7 +551,7 @@ function render(){
  $('#board').innerHTML=rows.map(({g,r})=>`<details class="g ${tcls(r)}" data-id="${esc(g.game_id)}" ${open.has(g.game_id)?'open':''}>${rowHTML(g,r)}${open.has(g.game_id)?panelHTML(g,r):''}</details>`).join('');
  const nb=rows.filter(x=>x.r.tag==='a').length,nl=rows.filter(x=>x.r.tag==='b').length,TA=D.validation.betting.actual.tiers.A;
  $('#kpis').innerHTML=[[nb,'Tier A picks'],[nl,'Tier B picks'],[TA.win+'%','Tier A backtest win rate ('+TA.bets+' bets, '+(TA.roi>0?'+':'')+TA.roi+'% ROI)'],[D.games.filter(g=>g.weather&&g.weather.wind>=15).length,'windy games (15+ mph)']].map(([b,s])=>`<div class="kpi"><b>${esc(b)}</b><span>${esc(s)}</span></div>`).join('');
- renderTeasers(rows);LS.set('nflats_adj_'+D.season+'_'+D.week,ADJ);LS.set('nflats_set2',S);
+ renderBooks();renderTeasers(rows);LS.set('nflats_adj_'+D.season+'_'+D.week,ADJ);LS.set('nflats_set2',S);
 }
 
 function renderTeasers(rows){
@@ -633,6 +642,7 @@ $('#board').addEventListener('click',e=>{const t=e.target.closest('button');if(!
   saveBet({id:'b'+Date.now(),ts:Date.now(),wk:`${D.season} W${D.week}`,game:g.game_id,team:home?g.home:g.away,opp:home?g.away:g.home,line:home?-r.L:r.L,odds:home?r.oh:r.oa,book:r.book||'',stake:Math.max(1,Math.round(r.stake||S.bank*.01)),p:r.pw,close:'',res:''});toast('Bet logged below')}});
 $('#okey').addEventListener('input',e=>{const k=e.target.value.trim();$('#ofeed').href=k?feedURL(k):'#';LS.set('nflats_okey',k)});
 $('#oRefresh').addEventListener('click',refreshLines);
+$('#mbList').addEventListener('change',e=>{const k=e.target.dataset.bk;if(!k)return;const m=myBooks();e.target.checked?m.add(k):m.delete(k);MYB=[...m];LS.set('nflats_books',MYB);render()});
 $('#hStart').addEventListener('click',hRun);$('#hDl').addEventListener('click',hDownload);$('#hFrom').addEventListener('change',hEstimate);$('#hTo').addEventListener('change',hEstimate);
 $('#hClear').addEventListener('click',async()=>{if(HRUN)return;await HDB.open();await HDB.clear();hEstimate();toast('Saved line history cleared')});$('#lockNow').addEventListener('click',()=>{try{localStorage.removeItem('nflats_lockkey')}catch(e){}location.reload()});$('#wRefresh').addEventListener('click',refreshWeather);
 $('#bkExport').addEventListener('click',exportBackup);$('#bkImport').addEventListener('change',e=>{if(e.target.files[0])importBackup(e.target.files[0])});
@@ -654,7 +664,7 @@ getWeek().then(d=>{D=d;
  const wx=LS.get('nflats_wx_'+D.season+'_'+D.week,null);if(wx)for(const g of D.games)if(wx.g[g.game_id]){const w=wx.g[g.game_id];g.weather=w;g.eff_total=g.total_line==null?44:g.total_line-(w.wind>=10?1.5:0);g.pmf_group=g.eff_total<=43.5?'lo':'hi';D.weather_source='Open-Meteo, '+new Date(wx.ts).toLocaleString()}
  S=Object.assign({k:D.k_gap,minev:2,bank:1000,kf:.25,stOn:1},LS.get('nflats_set2',{}));
  $('#k').value=S.k;$('#stOn').value=S.stOn;$('#minev').value=S.minev;$('#bank').value=S.bank;$('#kf').value=S.kf;$('#kv').textContent=(+S.k).toFixed(2)+(Math.abs(S.k-D.k_gap)<.005?' (backtest)':'');
- ADJ=LS.get('nflats_adj_'+D.season+'_'+D.week,{});
+ ADJ=LS.get('nflats_adj_'+D.season+'_'+D.week,{});MYB=LS.get('nflats_books',null);
  $('#title').textContent=`Week ${D.week}: special teams plus key numbers at a good price is the backtested edge.`;
  $('#asof').textContent=`Ratings use ${D.data_through.games} games through week ${D.data_through.week} of ${D.season}; market lines as of ${D.generated}; weather from ${D.weather_source||'n/a'}.`;
  $('#cst').textContent=D.c_st;$('#kgap').textContent=D.k_gap;
