@@ -48,11 +48,16 @@ def refresh_data(season, log=print):
         _dl(f"{REL}/injuries/injuries_{y}.parquet", os.path.join(data.DATA_DIR, f"inj_{y}.parquet"), log, force=(y == season))
         _dl(f"{REL}/snap_counts/snap_counts_{y}.parquet", os.path.join(data.DATA_DIR, f"snap_{y}.parquet"), log, force=(y == season))
     _dl(f"{REL}/players/players.parquet", os.path.join(data.DATA_DIR, "players.parquet"), log, force=True)
+    for y in range(2022, season + 1):
+        try:
+            _dl(f"{REL}/ftn_charting/ftn_charting_{y}.parquet", os.path.join(data.DATA_DIR, f"ftn_{y}.parquet"), log, force=(y == season))
+        except Exception as e:
+            log(f"  charting {y} unavailable ({e})")
 
 
 def run(season=None, week=None, log=print, download=True):
     if download:
-        log("Step 1/8  Downloading latest nflverse data")
+        log("Step 1/9  Downloading latest nflverse data")
         if not os.path.exists(os.path.join(data.DATA_DIR, "games.csv")):
             _dl(data.GAMES_URL, os.path.join(data.DATA_DIR, "games.csv"), log, force=True)
         s0, _ = detect_week()
@@ -61,28 +66,35 @@ def run(season=None, week=None, log=print, download=True):
         season, week = detect_week()
     log(f"Building week {week} of {season}")
     from . import build, predict, build2, predict2, build3, validate, predict3, weather
-    log("Step 2/8  Team ratings and QB values (walk-forward)")
+    log("Step 2/9  Team ratings and QB values (walk-forward)")
     build.build(season, verbose=False).to_parquet(f"{data.DATA_DIR}/features.parquet")
-    log("Step 3/8  Base projections")
+    log("Step 3/9  Base projections")
     predict.main(season, week)
-    log("Step 4/8  Secondary stats, special teams, injuries")
+    log("Step 4/9  Secondary stats, special teams, injuries")
     build2.build2(season).to_parquet(f"{data.DATA_DIR}/features2.parquet")
-    log("Step 5/8  Weather forecasts (Open-Meteo)")
+    log("Step 5/9  Weather forecasts (Open-Meteo)")
     try:
         wx = weather.fetch(season, week, log)
     except Exception as e:
         log(f"  weather unavailable ({e}); continuing without it")
         wx = None
-    log("Step 6/8  Full stats line and key-number tables")
+    log("Step 6/9  Full stats line and key-number tables")
     predict2.main(season, week, wx)
-    log("Step 7/8  Candidate signals and validation")
+    log("Step 7/9  Candidate signals and validation")
     f3 = build3.build3(season)
     f3.to_parquet(f"{data.DATA_DIR}/features3.parquet")
     d = validate.prep(f3)
     t, adjs = validate.single_signals(d)
     pickle.dump((d, adjs, t), open(f"{data.DATA_DIR}/v3_signals.pkl", "wb"))
-    log("Step 8/8  Confidence tiers and this week's board")
+    log("Step 8/9  Confidence tiers and this week's board")
     path, _ = predict3.main(season, week)
+    log("Step 9/9  Player-level matchups and players out")
+    try:
+        from . import build4, predict4
+        build4.build4(season).to_parquet(f"{data.DATA_DIR}/features4.parquet")
+        path, _ = predict4.main(season, week)
+    except Exception as e:
+        log(f"  matchup layer skipped ({e.__class__.__name__}: {e}); board still built")
     shutil.copy(path, os.path.join(data.DATA_DIR, "current_week.json"))
     log(f"Done: week {week} of {season} is ready")
     return season, week

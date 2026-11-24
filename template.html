@@ -216,6 +216,19 @@ function injHTML(g){const I=g.injuries||{},h=I.home||[],a=I.away||[];
  if(!h.length&&!a.length)return `<p class="note">Injury report: none posted for this week yet (reports run Wednesday to Friday). Refresh then and the model prices each absence by snap share and position.</p>`;
  const sum=l=>l.reduce((s,x)=>s+x.pts,0);const li=(t,l,side)=>`<p class="small"><b>${esc(t)}</b>: ${l.map(x=>`${esc(x.name)} (${esc(x.pos)}, ${esc(x.status)}, ${Math.round(x.snap*100)}% snaps, ${x.pts.toFixed(1)})`).join('; ')||'none'} <button data-inj="${side}" data-v="${sum(l).toFixed(1)}" data-g="${esc(g.game_id)}">Apply ${sum(l).toFixed(1)} pts</button></p>`;
  return `<h3 style="margin-top:14px">Injury report</h3>${li(g.away,a,'aInj')}${li(g.home,h,'hInj')}<p class="note">Apply only if the line hasn't already moved for these.</p>`}
+let RK=null;
+function ranks(){if(RK)return RK;const mk=(k,dir)=>Object.fromEntries([...D.teams].sort((a,b)=>dir*(b[k]-a[k])).map((t,i)=>[t.team,i+1]));
+ RK={op:mk('off_pass',1),or:mk('off_rush',1),dp:mk('def_pass',-1),dr:mk('def_rush',-1),n:D.teams.length};return RK}
+function matchHTML(g){const M=g.matchup;if(!M)return '';const R=ranks(),H=g.home,A=g.away;
+ const ord=n=>n+(n%100>=11&&n%100<=13?'th':['th','st','nd','rd'][n%10]||'th');
+ const edge=(o,d)=>o<d?`<span class="pos">offense edge</span>`:o>d?`<span class="neg">defense edge</span>`:'even';
+ const fav=(v,lab)=>v==null||Math.abs(v)<.25?`<tr><td>${lab}</td><td>even</td></tr>`:`<tr><td>${lab}</td><td>${esc(v>0?H:A)} +${Math.abs(v).toFixed(1)}</td></tr>`;
+ const unit=(o,d)=>`<tr><td>${esc(o)} pass O (${ord(R.op[o])}) vs ${esc(d)} pass D (${ord(R.dp[d])})</td><td>${edge(R.op[o],R.dp[d])}</td></tr><tr><td>${esc(o)} run O (${ord(R.or[o])}) vs ${esc(d)} run D (${ord(R.dr[d])})</td><td>${edge(R.or[o],R.dr[d])}</td></tr>`;
+ const outs=(t,l)=>l&&l.length?`<p class="small"><b>${esc(t)} out</b> (production lost per game): ${l.map(x=>`${esc(x.name)} ${esc(x.pos)} ${esc(x.status)} ${x.val.toFixed(1)}`).join('; ')}</p>`:'';
+ return `<h3 style="margin-top:16px">Matchup breakdown</h3><table class="bd">${unit(H,A)}${unit(A,H)}
+ ${fav(M.unit_match,'Net unit matchup (pts)')}${fav(M.deep_match,'Deep passing matchup (pts)')}${fav(M.off_form,'Offense trending vs season')}${fav(M.def_form,'Defense trending vs season')}${M.qb_blitz!=null?fav(M.qb_blitz,'QB vs blitz (charting)'):''}</table>
+ ${outs(A,M.outs.away)}${outs(H,M.outs.home)}${!M.outs.home.length&&!M.outs.away.length?'<p class="note">Players-out values appear once injury reports post (Wednesday to Friday).</p>':''}
+ <p class="note">Context for your read, not part of the projection. Ranks are opponent-adjusted EPA per play out of ${R.n}. Every item here was tested against closing spreads (2015–2026) and none beat them; the market prices these by kickoff.</p>`}
 function booksHTML(g,r){const lv=r.lv;if(!lv)return '';const f1=v=>v==null?'—':fmtS(v);
  const rows=lv.books.slice().sort((x,y)=>(x.key==='pinnacle')-(y.key==='pinnacle')||x.title.localeCompare(y.title));
  return `<h3 style="margin-top:16px">Every book (pulled ${esc(ago(lv.ts))})</h3><div class="scroll"><table class="bd bk"><tr><td class="mut small">Book</td><td class="mut small">${esc(g.home)} spread</td><td class="mut small">${esc(g.home)} / ${esc(g.away)} price</td><td class="mut small">Total</td></tr>
@@ -378,6 +391,7 @@ function panelHTML(g,r){
  <p class="note">Scoring environment: total ${g.total_line??'—'}${g.eff_total!==g.total_line?` → ${g.eff_total} after wind`:''} (${g.pmf_group==='lo'?'low: more games land on 3':'normal'}).${g.weather?` Forecast: ${esc(g.weather.phrase)}, ${g.weather.temp}°F, wind ${g.weather.wind} mph (gusts ${g.weather.gust}), precip ${g.weather.precip_pct}%.`:''}</p>
  ${Math.abs(r.stats-r.M)>=3.5?`<p class="note">A ${Math.abs(r.stats-r.M).toFixed(1)}-point gap between stats line and market usually means the market knows something (injuries, a QB's health). Check the news.</p>`:''}
  ${booksHTML(g,r)}
+ ${matchHTML(g)}
  ${injHTML(g)}
  ${indHTML(g,r)}
  </div><div class="adj" data-g="${esc(g.game_id)}">
