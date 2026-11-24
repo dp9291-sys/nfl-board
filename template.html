@@ -146,7 +146,7 @@ textarea{font:14px ui-monospace,monospace;width:100%;border:1px solid var(--line
 
 <section class="band" style="background:var(--turf2)"><div class="wrap">
 <h2>Teaser legs that cross 3 and 7</h2>
-<p class="mut" style="max-width:820px">Six-point teasers on underdogs of +1.5 to +2.5 (moved to +7.5/+8.5) have been the one durable structural edge in this data. Tick 2 or 3 legs to price the ticket with this week's projections.</p>
+<p class="mut" style="max-width:820px">Six-point teasers on underdogs of +1.5 to +2.5 (moved to +7.5/+8.5) won 77% of legs in 2015–2026, but only 72% in 1999–2014, below the 73.9% a 2-team teaser at −120 needs, and many books now charge −130 or more. Treat this as a pricing tool, not a proven edge. Tick 2 or 3 legs to price a ticket with this week's projections.</p>
 <div class="row" style="margin-bottom:10px"><div><label for="tprice">Ticket price</label><select id="tprice"><option value="-120">2-team at −120</option><option value="-110">2-team at −110</option><option value="160">3-team at +160</option></select></div><div id="tres" class="pick"></div></div>
 <div class="teas" id="teas"></div>
 </div></section>
@@ -180,6 +180,17 @@ textarea{font:14px ui-monospace,monospace;width:100%;border:1px solid var(--line
 <tr><td>Primary kick/punt returner listed Out or Doubtful</td><td class="r">−0.18</td><td class="r">−0.17</td><td>No signal</td></tr>
 </tbody></table></div>
 <p class="note">Walk-forward 2016–2026 against closing spreads; weights learned only from earlier seasons; Benjamini–Hochberg false-discovery check at q = 0.10. Only the phase split passed on its own, and it is weaker than the current combined signal.</p>
+<h3 style="margin-top:22px">Other edges tested (rules fixed before testing)</h3>
+<div class="scroll"><table class="t stack"><thead><tr><th>Test</th><th class="r">Bets</th><th class="r">Win %</th><th class="r">Return</th><th>Verdict</th></tr></thead><tbody>
+<tr><td><b>Under in 10+ mph wind (outdoors), closing total, 2015–26</b></td><td class="r">648</td><td class="r">57.9%</td><td class="r">+12.2%</td><td><b>Added as a bet</b> (passes FDR)</td></tr>
+<tr><td>Same, 1999–2014 (never used in development)</td><td class="r">1,134</td><td class="r">52.9%</td><td class="r">+2.3%</td><td>Weaker; 15+ mph: 56.8%</td></tr>
+<tr><td>Under when wind is below 10 mph (control), 2015–26</td><td class="r">1,274</td><td class="r">47.6%</td><td class="r">−7.5%</td><td>Wind is what matters</td></tr>
+<tr><td>Teaser legs (dogs +1.5–2.5, favs −7.5–8.5), 2015–26</td><td class="r">750</td><td class="r">75.6%</td><td class="r">—</td><td>Not significant</td></tr>
+<tr><td>Same, 1999–2014</td><td class="r">615</td><td class="r">72.2%</td><td class="r">—</td><td>Below 73.9% break-even</td></tr>
+<tr><td>Bet special teams at the opener when the stats model agrees</td><td class="r">255</td><td class="r">54.5%</td><td class="r">+3.6%</td><td>No better than kickoff (54.9%)</td></tr>
+<tr><td>Arizona book's opener 1.5+ pts off Pinnacle</td><td class="r">70</td><td class="r">57.1%</td><td class="r">+7.2%</td><td>Not significant; erratic by season</td></tr>
+</tbody></table></div>
+<p class="note">Wind unders use the actual game-time wind; the board uses the kickoff-hour forecast, which adds some error. Stakes for unders assume a 3% edge (smaller than spreads) because the older seasons showed a weaker effect. Domes and retractable roofs are excluded.</p>
 <details style="margin-top:18px"><summary class="small"><b>Earlier analysis: retired tiers, all 30 signals, line history</b></summary>
 <div class="callout" id="btCall"></div>
 <h3>Retired confidence tiers (for reference)</h3>
@@ -281,7 +292,7 @@ function cover2(mu,L,grp,M){const C=D.cover2;if(!C)return cover(mu,L,grp);const 
  const pm=x=>{const v=new Array(101);let t=0;for(let i=0;i<101;i++){const d=i-50-x;v[i]=(q*Math.exp(-.5*(d/s1)**2)/s1+(1-q)*Math.exp(-.5*(d/s2)**2)/s2)*P.w[i];t+=v[i]}for(let i=0;i<101;i++)v[i]/=t;return v};
  const pM=pm(mu),pL=pm(L),at2=(v,x)=>Number.isInteger(x)&&x>=-50&&x<=50?v[x+50]:0,gt2=(v,x)=>{let t=0;for(let i=0;i<101;i++)if(i-50>x)t+=v[i];return t};
  const push=at2(pM,L),push0=at2(pL,L),h=(1-push0)/2+gt2(pM,L)-gt2(pL,L);return {h,push,a:1-h-push}}
-function wxText(g){const w=g.weather;if(!w)return g.roof==='dome'?'dome':'roof closed';return `${w.temp}° · ${w.wind} mph${w.precip_pct>=50?' · rain '+w.precip_pct+'%':''}`}
+function wxText(g){const w=g.weather;if(!w)return g.roof==='dome'?'dome':g.roof==null&&!(g.venue&&g.venue.outdoor)?'retractable roof':'forecast loading';return `${w.temp}° · ${w.wind} mph${w.precip_pct>=50?' · rain '+w.precip_pct+'%':''}`}
 function injHTML(g){const I=g.injuries||{},h=I.home||[],a=I.away||[];
  if(!h.length&&!a.length)return `<p class="note">Injury report: none posted for this week yet (reports run Wednesday to Friday). Refresh then and the model prices each absence by snap share and position.</p>`;
  const sum=l=>l.reduce((s,x)=>s+x.pts,0);const li=(t,l,side)=>`<p class="small"><b>${esc(t)}</b>: ${l.map(x=>`${esc(x.name)} (${esc(x.pos)}, ${esc(x.status)}, ${Math.round(x.snap*100)}% snaps, ${x.pts.toFixed(1)})`).join('; ')||'none'} <button data-inj="${side}" data-v="${sum(l).toFixed(1)}" data-g="${esc(g.game_id)}">Apply ${sum(l).toFixed(1)} pts</button></p>`;
@@ -339,12 +350,12 @@ function parseFeed(txt){let j;try{j=JSON.parse(txt)}catch(e){throw new Error('Th
  for(const ev of evs){const h=TEAMN[ev.home_team],a=TEAMN[ev.away_team];if(!h||!a)continue;
   const g=D.games.find(x=>(x.home===h&&x.away===a)||(x.home===a&&x.away===h));if(!g)continue;matched++;
   const books=[];
-  for(const bk of (ev.bookmakers||[])){let L=null,oh=null,oa=null,tot=null;
+  for(const bk of (ev.bookmakers||[])){let L=null,oh=null,oa=null,tot=null,tu=null;
    const t=Date.parse(bk.last_update||'');if(t>maxTs)maxTs=t;
    for(const mk of (bk.markets||[])){
     if(mk.key==='spreads')for(const o of mk.outcomes||[]){const ab=TEAMN[o.name];if(ab===g.home){L=-(+o.point);oh=toAm(o.price)}else if(ab===g.away){oa=toAm(o.price)}}
-    if(mk.key==='totals')for(const o of mk.outcomes||[]){if(o.name==='Over')tot=+o.point}}
-   if(L!=null||tot!=null)books.push({key:String(bk.key||''),title:String(bk.title||bk.key||'Book'),L,oh,oa,tot})}
+    if(mk.key==='totals')for(const o of mk.outcomes||[]){if(o.name==='Over')tot=+o.point;else if(o.name==='Under')tu=toAm(o.price)}}
+   if(L!=null||tot!=null)books.push({key:String(bk.key||''),title:String(bk.title||bk.key||'Book'),L,oh,oa,tot,tu})}
   if(!books.length)continue;
   const pin=books.find(b=>b.key==='pinnacle');
   out[g.game_id]={books,cons:med(books.map(b=>b.L)),tot:med(books.map(b=>b.tot)),pin:pin?pin.L:null}}
@@ -503,20 +514,32 @@ function whyHTML(g,r){const sg=r.side==='home'?1:-1,pl=r.side==='home'?-r.L:r.L,
  else if(r.worse)out.push(`It leans ${esc(N(r.side==='home'?g.home:g.away))} (${esc(st)}), but your books only offer ${esc(pickLbl(g,r.side,r.L))} against the market’s ${esc(pickLbl(g,r.side,r.M))}. Every backtested bet was at the market number or better.`);
  else out.push(`No bet: ${esc(st)}${Math.abs(r.news)>=.05?` and your news adds ${Math.abs(r.news).toFixed(1)}`:''}, under the ${thr}-point threshold.`);
  return out.join(' ')}
+const UND={wind:10,edge:.03,cap:.02};
+function nBets(){return D.games.reduce((n,g)=>n+(calc(g).tag==='a'?1:0)+(totCalc(g).bet?1:0),0)}
+function totCalc(g){const w=g.weather,out={on:false};const outdoor=g.venue&&g.venue.outdoor!=null?g.venue.outdoor:g.roof==='outdoors';
+ if(!outdoor||!w||w.wind==null)return out;out.wind=w.wind;if(w.wind<UND.wind)return out;
+ const lv=LIVE[g.game_id],mkt=lv&&lv.tot!=null?lv.tot:g.total_line;let T=null,o=-110,book=null;
+ if(lv&&lv.books.length){const mine=myBooks();let best=null;for(const b of lv.books){if(b.tot==null||!mine.has(b.key))continue;const pr=b.tu??-110;if(!best||b.tot>best.tot||(b.tot===best.tot&&payout(pr)>payout(best.pr)))best={tot:b.tot,pr,t:b.title}}if(best){T=best.tot;o=best.pr;book=best.t}}
+ if(T==null){T=g.total_line;o=-110}if(T==null)return out;
+ const worse=mkt!=null&&mkt-T>=.5;Object.assign(out,{on:true,T,o,book,mkt,worse,bet:!worse,stake:worse?0:S.bank*Math.min(UND.cap,S.kf*UND.edge/payout(o))});return out}
+const windWhy=u=>`Wind ${u.wind} mph forecast at kickoff: unders in 10+ mph wind won 58% at closing totals in 2015–2026 and 53% in 1999–2014.`;
 const leanTxt=x=>{const v=Math.abs(x),thr=(D.rule||{thr:.5}).thr;let t=v.toFixed(1);if(v<thr&&+t>=thr)t=(Math.floor(v*100)/100).toFixed(2);return t};
-const tcls=r=>r.tag==='a'?'ta':r.tag==='b'?'tb':'tp';
+const tcls=(r,u)=>r.tag==='a'||(u&&u.bet)?'ta':'tp';
 function rowHTML(g,r){
  const pickT=r.side==='home'?g.home:g.away,pl=r.side==='home'?-r.L:r.L,o=r.side==='home'?r.oh:r.oa;
  const meta=[g.div?'Division':'',wxText(g),g.total_line?'O/U '+g.total_line:''].filter(Boolean).join(' · ');
- let verdict,sub;const noLine=!r.lv&&(adj(g).book==null||adj(g).book==='')&&g.spread_line==null;
+ let verdict,sub,extra='';const u=totCalc(g);const noLine=!r.lv&&(adj(g).book==null||adj(g).book==='')&&g.spread_line==null;
+ const uLine=`Under ${u.T} ${odds(u.o)}${u.book?' at '+u.book:''}${u.stake>0?' · stake $'+u.stake.toFixed(0):''} · wind ${u.wind} mph`;
  if(noLine){verdict='No line yet';sub='Press Refresh lines once books post this game'}
  else if(r.tag==='pass'){verdict=r.worse?'Pass at your books':'Pass';sub=r.worse?`Market is ${pickLbl(g,r.side,r.M)}; your best is ${pickLbl(g,r.side,r.L)}`:`Lean ${leanTxt(r.lean)} pts; a bet needs ${(D.rule||{thr:.5}).thr}`}
  else{verdict=`Bet ${N(pickT)} ${fmtS(pl)}`;sub=`${odds(o)}${r.book?' at '+r.book:(r.lv?' at the consensus (none of your books lists this game)':'')}${r.stake>0?' · stake $'+r.stake.toFixed(0):''}`}
+ if(!noLine&&u.bet){if(r.tag==='a')extra=`Also bet ${uLine}`;else{extra=`Spread: ${verdict.toLowerCase()} (${sub.charAt(0).toLowerCase()+sub.slice(1)})`;verdict=`Bet Under ${u.T}`;sub=uLine.replace(/^Under \S+ /,'')}}
+ else if(!noLine&&u.on&&u.worse)extra=`Wind under: pass at your books (market ${u.mkt}, your best ${u.T})`;
  const evs=(r.ev*100).toFixed(1).replace('-','−');
  return `<summary><span class="c-top"><span><span class="c-when">${esc(koText(g))}</span><span class="c-mt">${esc(N(g.away))} @ ${esc(N(g.home))}</span><span class="c-meta">${esc(meta)}</span></span>
- <span class="tag ${r.tag}">${r.tag==='a'?'BET':'PASS'}</span></span>
- <span class="verdict ${r.tag}">${esc(verdict)}</span><span class="vsub">${esc(sub)}</span>
- <span class="why">${noLine?`No market line is posted for this game yet, so there's nothing to price. The stats line has ${esc(sideTxt(g,r.stats))}.`:whyHTML(g,r)}</span>
+ <span class="tag ${r.tag==='a'||u.bet?'a':'pass'}">${r.tag==='a'||u.bet?'BET':'PASS'}</span></span>
+ <span class="verdict ${r.tag==='a'||(u.bet&&!noLine)?'a':'pass'}">${esc(verdict)}</span><span class="vsub">${esc(sub)}</span>${extra?`<span class="vsub" style="color:var(--ink);font-weight:600">${esc(extra)}</span>`:''}
+ <span class="why">${noLine?`No market line is posted for this game yet, so there's nothing to price. The stats line has ${esc(sideTxt(g,r.stats))}.`:u.bet&&r.tag!=='a'?`<b>Main reason:</b> ${esc(windWhy(u))} Spread: ${whyHTML(g,r)}`:whyHTML(g,r)+(u.bet?' '+esc(windWhy(u)).replace('Wind ','Wind of ').replace('forecast at kickoff:','also makes the under a bet:'):'')}</span>
  <span class="nums"><span>Model<b>${esc(lineLabel(g,Math.round(r.proj*10)/10))}</b></span><span>Market${r.lv?' (live)':''}<b>${esc(lineLabel(g,r.M))}</b></span>
  <span>${esc(N(pickT))} cover<b>${Math.round(r.pw*100)}%</b>${r.p.push>=.01?`push ${Math.round(r.p.push*100)}%`:''}</span><span>Lean<b class="${Math.abs(r.lean)>=(D.rule||{thr:.5}).thr?'pos':''}">${Math.abs(r.lean)<.05?'none':esc(N(r.lean>0?g.home:g.away))+' +'+leanTxt(r.lean)}</b></span></span>
  <span class="more"><span class="o">Deep dive ▾</span><span class="c">Hide deep dive ▴</span></span></summary>`}
@@ -540,7 +563,7 @@ function panelHTML(g,r){
  <tr><td>Model expected return: ${esc(N(g.home))} ${esc(odds(r.oh))} / ${esc(N(g.away))} ${esc(odds(r.oa))}</td><td>${(r.evH*100).toFixed(1)}% / ${(r.evA*100).toFixed(1)}%</td></tr>
  ${r.stake>0?`<tr><td>Stake: ${S.kf} Kelly × ${(D.rule||{edge:.04}).edge*100}% assumed edge ÷ payout, max ${(D.rule||{cap:.02}).cap*100}% of bankroll</td><td>$${r.stake.toFixed(0)}</td></tr>`:''}</table>
  <p class="note">Cover odds come from a smooth key-number model fit to every game since 2002 (${g.pmf_group==='lo'?'low-total games, where more land on 3':'normal-total games'}). It picks the best line among your books and flags key numbers. It is not the bet filter: in testing, filtering on it didn't help, so the bet rule is the lean alone, and the stake assumes the backtested edge of about 4%, not the model's figure.</p>
- ${r.tag!=='pass'?`<div class="row"><button class="pri" data-log="${esc(g.game_id)}">Log ${esc(pickLbl(g,r.side,r.L))} bet</button></div>`:''}`;
+ ${r.tag!=='pass'||totCalc(g).bet?`<div class="row">${r.tag!=='pass'?`<button class="pri" data-log="${esc(g.game_id)}">Log ${esc(pickLbl(g,r.side,r.L))} bet</button>`:''}${totCalc(g).bet?`<button class="pri" data-logu="${esc(g.game_id)}">Log Under ${totCalc(g).T} bet</button>`:''}</div>`:''}`;
  const books=r.lv?booksHTML(g,r):`<p class="note">Press <b>Refresh lines</b> at the top to compare every book. The pick is always priced at the best available line.</p>`;
  const stats=`<h3 style="margin-top:0">Full stats line: ${esc(lineLabel(g,Math.round(r.stats*10)/10))}</h3>
  <table class="bd">${Object.entries(g.groups).map(([k,v])=>`<tr><td>${esc(k)}</td><td>${f(v)}</td></tr>`).join('')}
@@ -572,10 +595,10 @@ let open=new Set();
 function render(){
  const rows=D.games.map(g=>({g,r:calc(g)}));
  const srt=$('#sort').value;
- if(srt==='pick'){const rk={a:0,b:1,pass:2};rows.sort((x,y)=>rk[x.r.tag]-rk[y.r.tag]||Math.abs(y.r.lean)-Math.abs(x.r.lean))}else if(srt==='ev')rows.sort((x,y)=>Math.abs(y.r.lean)-Math.abs(x.r.lean));else if(srt==='gap')rows.sort((x,y)=>Math.abs(y.r.stats-y.r.M)-Math.abs(x.r.stats-x.r.M));
- $('#board').innerHTML=rows.map(({g,r})=>`<details class="g ${tcls(r)}" data-id="${esc(g.game_id)}" ${open.has(g.game_id)?'open':''}>${rowHTML(g,r)}${open.has(g.game_id)?panelHTML(g,r):''}</details>`).join('');
- const nb=rows.filter(x=>x.r.tag==='a').length;
- $('#kpis').innerHTML=[[nb,'bets this week'],['55.2%','special-teams lean at the best Arizona book near kickoff, 2021–26 (604 bets, +5.1%)'],[D.games.filter(g=>g.weather&&g.weather.wind>=15).length,'windy games (15+ mph)']].map(([b,s])=>`<div class="kpi"><b>${esc(b)}</b><span>${esc(s)}</span></div>`).join('');
+ if(srt==='pick'){const rk={a:0,b:1,pass:2};rows.sort((x,y)=>(tcls(x.r,totCalc(x.g))==='ta'?0:1)-(tcls(y.r,totCalc(y.g))==='ta'?0:1)||Math.abs(y.r.lean)-Math.abs(x.r.lean))}else if(srt==='ev')rows.sort((x,y)=>Math.abs(y.r.lean)-Math.abs(x.r.lean));else if(srt==='gap')rows.sort((x,y)=>Math.abs(y.r.stats-y.r.M)-Math.abs(x.r.stats-x.r.M));
+ $('#board').innerHTML=rows.map(({g,r})=>`<details class="g ${tcls(r,totCalc(g))}" data-id="${esc(g.game_id)}" ${open.has(g.game_id)?'open':''}>${rowHTML(g,r)}${open.has(g.game_id)?panelHTML(g,r):''}</details>`).join('');
+ const nb=nBets();
+ $('#kpis').innerHTML=[[nb,'bets this week (spreads + wind unders)'],['55.2%','special-teams lean at the best Arizona book near kickoff, 2021–26 (604 bets, +5.1%)'],[D.games.filter(g=>g.weather&&g.weather.wind>=15).length,'windy games (15+ mph)']].map(([b,s])=>`<div class="kpi"><b>${esc(b)}</b><span>${esc(s)}</span></div>`).join('');
  renderBooks();renderTeasers(rows);LS.set('nflats_adj_'+D.season+'_'+D.week,ADJ);LS.set('nflats_set2',S);
 }
 
@@ -636,8 +659,8 @@ function renderLog(){
   if(b.close!==''&&b.close!=null){const c=b.line-(+b.close);clvN++;clvS+=c;if(c>0)beat++}}
  $('#logk').innerHTML=[[`${w}–${l}${p?'–'+p:''}`,'record'],[(prof>=0?'+$':'−$')+Math.abs(prof).toFixed(0),'profit'],[clvN?(clvS/clvN>=0?'+':'')+(clvS/clvN).toFixed(2):'—','avg CLV (pts)'],[clvN?Math.round(100*beat/clvN)+'%':'—','beat the close']].map(([b,s])=>`<div class="kpi"><b class="num">${esc(b)}</b><span class="mut">${esc(s)}</span></div>`).join('');
  $('#log').innerHTML=`<thead><tr><th>Week</th><th>Bet</th><th class="r">Odds</th><th class="r">Stake</th><th class="r">Model %</th><th>Closing line</th><th>Result</th><th class="r">CLV</th><th></th></tr></thead><tbody>`+rows.map(b=>{const c=b.close===''||b.close==null?null:b.line-(+b.close);
- return `<tr data-b="${esc(b.id)}"><td>${esc(b.wk)}</td><td><b>${esc(b.team)} ${esc(fmtS(b.line))}</b> <span class="mut small">vs ${esc(b.opp)}${b.book?' · '+esc(b.book):''}</span></td><td class="r">${esc(odds(b.odds))}</td><td class="r">$${esc((+b.stake).toFixed(0))}</td><td class="r">${esc(pct(b.p))}</td>
- <td><input type="number" step="0.5" data-bf="close" value="${esc(b.close??'')}" placeholder="${esc(fmtS(b.line))}" aria-label="Closing line" style="width:90px"></td>
+ return `<tr data-b="${esc(b.id)}"><td>${esc(b.wk)}</td><td><b>${b.kind==='under'?'Under '+esc(b.line):esc(b.team)+' '+esc(fmtS(b.line))}</b> <span class="mut small">${b.kind==='under'?'':'vs '}${esc(b.opp)}${b.book?' · '+esc(b.book):''}</span></td><td class="r">${esc(odds(b.odds))}</td><td class="r">$${esc((+b.stake).toFixed(0))}</td><td class="r">${b.p==null?'—':esc(pct(b.p))}</td>
+ <td><input type="number" step="0.5" data-bf="close" value="${esc(b.close??'')}" placeholder="${esc(b.kind==='under'?String(b.line):fmtS(b.line))}" aria-label="Closing line" style="width:90px"></td>
  <td><select data-bf="res" aria-label="Result"><option value="">—</option>${['W','L','P'].map(x=>`<option ${b.res===x?'selected':''}>${x}</option>`).join('')}</select></td>
  <td class="r ${c>0?'pos':c<0?'neg':''}">${c==null?'—':(c>0?'+':'')+c.toFixed(1)}</td><td><button data-bdel="${esc(b.id)}" aria-label="Delete bet">✕</button></td></tr>`}).join('')+'</tbody>'}
 async function saveBet(b){const i=BETS.findIndex(x=>x.id===b.id);if(i>=0)BETS[i]=b;else BETS.push(b);renderLog();LS.set('nflats_bets',BETS)}
@@ -651,9 +674,9 @@ $('#board').addEventListener('toggle',e=>{const d=e.target;if(d.matches('details
  if(d.open&&!open.has(id)){open.add(id);const g=D.games.find(x=>x.game_id===id);d.insertAdjacentHTML('beforeend',panelHTML(g,calc(g)))}else if(!d.open){open.delete(id);d.querySelector('.panel')?.remove()}},true);
 function refreshGame(id){clearTimeout(refreshGame.t[id]);refreshGame.t[id]=setTimeout(()=>{try{
  const d=document.querySelector(`details[data-id="${CSS.escape(id)}"]`);if(!d)return;const g=D.games.find(x=>x.game_id===id);const r=calc(g);
- d.className='g '+tcls(r);const foc=document.activeElement?.dataset?.f;d.innerHTML=rowHTML(g,r)+(d.open?panelHTML(g,r):'');
+ d.className='g '+tcls(r,totCalc(g));const foc=document.activeElement?.dataset?.f;d.innerHTML=rowHTML(g,r)+(d.open?panelHTML(g,r):'');
  if(foc)d.querySelector(`[data-f="${foc}"]`)?.focus();renderTeasers(D.games.map(g=>({g,r:calc(g)})));LS.set('nflats_adj_'+D.season+'_'+D.week,ADJ);
- const ks=document.querySelectorAll('#kpis .kpi b');if(ks.length){ks[0].textContent=D.games.filter(g=>calc(g).tag==='a').length}
+ const ks=document.querySelectorAll('#kpis .kpi b');if(ks.length){ks[0].textContent=nBets()}
  }catch(e){console.log('refresh',e)}},0)}
 refreshGame.t={};
 $('#board').addEventListener('change',e=>{const el=e.target;if(!el.dataset.f)return;const box=el.closest('.adj'),dg=el.closest('details.g');const id=box?box.dataset.g:dg&&dg.dataset.id;if(!id)return;const a=ADJ[id]||(ADJ[id]={});
@@ -663,6 +686,8 @@ $('#board').addEventListener('click',e=>{const t=e.target.closest('button');if(!
  if(t.dataset.inj){const id=t.dataset.g,a=ADJ[id]||(ADJ[id]={});a[t.dataset.inj]=t.dataset.v;refreshGame(id)}
  else if(t.dataset.chip){const box=t.closest('.adj'),id=box.dataset.g,a=ADJ[id]||(ADJ[id]={});a[t.dataset.chip]=(Math.round(((+a[t.dataset.chip]||0)+(+t.dataset.v))*10)/10).toString();refreshGame(id)}
  else if(t.dataset.clr){delete ADJ[t.dataset.clr];refreshGame(t.dataset.clr)}
+ else if(t.dataset.logu){const g=D.games.find(x=>x.game_id===t.dataset.logu),u=totCalc(g);
+  saveBet({id:'b'+Date.now(),ts:Date.now(),kind:'under',wk:`${D.season} W${D.week}`,game:g.game_id,team:'Under',opp:`${g.away} @ ${g.home}`,line:u.T,odds:u.o,book:u.book||'',stake:Math.max(1,Math.round(u.stake||S.bank*.01)),p:null,close:'',res:''});toast('Under logged below')}
  else if(t.dataset.log){const g=D.games.find(x=>x.game_id===t.dataset.log),r=calc(g);const home=r.side==='home';
   saveBet({id:'b'+Date.now(),ts:Date.now(),wk:`${D.season} W${D.week}`,game:g.game_id,team:home?g.home:g.away,opp:home?g.away:g.home,line:home?-r.L:r.L,odds:home?r.oh:r.oa,book:r.book||'',stake:Math.max(1,Math.round(r.stake||S.bank*.01)),p:r.pw,close:'',res:''});toast('Bet logged below')}});
 $('#okey').addEventListener('input',e=>{const k=e.target.value.trim();$('#ofeed').href=k?feedURL(k):'#';LS.set('nflats_okey',k)});
