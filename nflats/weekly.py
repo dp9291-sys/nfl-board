@@ -111,6 +111,11 @@ def run(season=None, week=None, log=print, download=True):
         cover2.enrich(path)
     except Exception as e:
         log(f"  smooth cover model skipped ({e.__class__.__name__}: {e}); page falls back to the older tables")
+    try:
+        from . import health
+        health.enrich(path)
+    except Exception as e:
+        log(f"  health facts skipped ({e.__class__.__name__}: {e})")
     shutil.copy(path, os.path.join(data.DATA_DIR, "current_week.json"))
     log(f"Done: week {week} of {season} is ready")
     return season, week
