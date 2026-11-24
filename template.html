@@ -22,7 +22,7 @@ h1,h2,h3,.num{font-family:"Barlow Condensed",Barlow,sans-serif}
 h1{font-size:clamp(32px,5vw,50px);line-height:1.05;margin:0 0 10px;text-wrap:balance;font-weight:700}
 h2{font-size:32px;line-height:1.05;margin:0 0 8px;font-weight:700}h3{font-size:22px;margin:0 0 6px}
 .hero{background:var(--turf);color:#fff}.hero p{max-width:760px;margin:6px 0;color:#e7f3eb}
-.kpis{display:flex;flex-wrap:wrap;gap:12px 36px;margin-top:18px}.kpi b{display:block;font:700 40px/1 "Barlow Condensed","Arial Narrow",sans-serif}.kpi span{font-size:14px;color:#cfe6d7}
+.kpis{display:flex;flex-wrap:wrap;gap:12px 36px;margin-top:18px}#sKpi .kpi span,#logk .kpi span{color:var(--mut)}#sKpi .kpi b{font-size:30px}#sKpi{gap:10px 28px}.kpi b{display:block;font:700 40px/1 "Barlow Condensed","Arial Narrow",sans-serif}.kpi span{font-size:14px;color:#cfe6d7}
 .ctrl{background:var(--turf2);border-bottom:1px solid var(--line);padding:14px max(5vw,16px)}
 .ctrl .wrap{display:flex;flex-wrap:wrap;gap:14px 26px;align-items:end}
 label{font-size:14px;color:var(--mut);display:block}
@@ -146,12 +146,21 @@ textarea{font:14px ui-monospace,monospace;width:100%;border:1px solid var(--line
 <section class="band"><div class="wrap">
 <h2>Model health</h2>
 <div class="grid2"><div><table class="t" id="hlth"></table></div>
-<div><h3 style="margin-top:0">This season, week by week (backtested picks)</h3><div class="small" id="hWeeks"></div>
-<p class="note">Each past week replayed with only what the model knew beforehand, at the posted closing line. Your own results come from the bet log below.</p>
+<div><h3 style="margin-top:0">This season, week by week</h3><div class="small" id="hWeeks"></div>
+<p class="note">Spread picks at the posted closing line. Full results, wind unders and every pick are in <a href="#seasonTitle">Season results</a> below.</p>
 <div class="row" style="margin-top:10px"><button id="expLog">Export prediction log</button></div>
 <p class="note" id="expMsg">Downloads every saved model prediction (encrypted on the site; unlocked here with your PIN), every decision this phone made when you refreshed lines or weather, and your bet log, as one file to send to Claude for a review.</p></div></div>
 </div></section>
 <section class="band" style="background:var(--turf2)"><div class="wrap">
+<h2 id="seasonTitle">Season results: model picks at the closing line</h2>
+<p class="mut small" style="max-width:860px">Every pick the model would have made this season, graded at the posted closing line and price whether or not you bet it, 1 unit each. Spreads: the special-teams lean of 0.5+ pts. Wind unders: outdoor games where the archived near-kickoff forecast was 10+ mph. Games before <span id="sLive"></span> are replayed with only what the model knew beforehand; from then on it is model v1.0's live record. Your own bets and prices are in the bet log.</p>
+<div class="kpis" id="sKpi" style="margin:8px 0 14px"></div>
+<div id="sChart" style="position:relative;max-width:860px"></div>
+<div class="scroll" style="margin-top:12px"><table class="t stack" id="sWeeks"></table></div>
+<details style="margin-top:12px"><summary class="small"><b>Every pick this season</b></summary><div class="scroll"><table class="t stack" id="sPicks"></table></div></details>
+<p class="note" id="sNote"></p>
+</div></section>
+<section class="band"><div class="wrap">
 <h2>Teaser legs that cross 3 and 7</h2>
 <p class="mut" style="max-width:820px">Six-point teasers on underdogs of +1.5 to +2.5 (moved to +7.5/+8.5) won 77% of legs in 2015–2026, but only 72% in 1999–2014, below the 73.9% a 2-team teaser at −120 needs, and many books now charge −130 or more. Treat this as a pricing tool, not a proven edge. Tick 2 or 3 legs to price a ticket with this week's projections.</p>
 <div class="row" style="margin-bottom:10px"><div><label for="tprice">Ticket price</label><select id="tprice"><option value="-120">2-team at −120</option><option value="-110">2-team at −110</option><option value="160">3-team at +160</option></select></div><div id="tres" class="pick"></div></div>
@@ -632,6 +641,60 @@ async function exportLog(){const msg=$('#expMsg');try{msg.textContent='Collectin
  const out={exported_at:new Date().toISOString(),model_version:D.model_version||'v1.0',predictions:preds,decisions:LS.get('nflats_declog',[]),bets:BETS};
  const blob=new Blob([JSON.stringify(out)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='nfl-prediction-log-'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();a.remove();
  msg.textContent=`Exported ${preds.length} saved predictions, ${out.decisions.length} phone decisions and ${BETS.length} logged bets. Send the file to Claude.`}catch(e){msg.textContent='Export failed: '+e.message}}
+/* ---------- season results ---------- */
+let SEASON_WX=null,SWX_RUN=false;
+function seasonPicks(){const H=D.health||{},G=H.season_games||[];SEASON_WX=SEASON_WX||LS.get('nflats_wxs_'+D.season,{});const P=[];
+ for(const g of G){const m=g.hs-g.as;
+  if(g.adj!=null&&Math.abs(g.adj)>=.5&&g.L!=null){const home=g.adj>0,res=home?m-g.L:g.L-m,o=(home?g.oh:g.oa)||-110;
+   P.push({g,kind:'spread',label:`${N(home?g.h:g.a)} ${fmtS(home?-g.L:g.L)}`,res,o,u:res>0?payout(o):res<0?-1:0,note:`lean ${leanTxt(g.adj)}`})}
+  if(g.lat!=null&&g.T!=null){const w=SEASON_WX[g.id];if(w!=null&&w>=10){const res=g.T-(g.hs+g.as),o=g.ou||-110;
+   P.push({g,kind:'under',label:`Under ${g.T}`,res,o,u:res>0?payout(o):res<0?-1:0,note:`forecast ${w} mph`})}}}
+ return P}
+function wlp(P){const w=P.filter(x=>x.res>0).length,l=P.filter(x=>x.res<0).length,p=P.length-w-l,u=P.reduce((s,x)=>s+x.u,0);return {w,l,p,u,n:P.length}}
+const fmtU=u=>(u>=0?'+':'−')+Math.abs(u).toFixed(1);
+const recTxt=r=>`${r.w}-${r.l}${r.p?'-'+r.p:''}`;
+let SRESIZE=0;window.addEventListener('resize',()=>{clearTimeout(SRESIZE);SRESIZE=setTimeout(()=>{try{renderSeason()}catch(e){}},200)});
+function renderSeason(){if(!$('#sKpi')||!D)return;const H=D.health||{},G=H.season_games||[];
+ $('#sLive').textContent=H.live_from?new Date(H.live_from+'T12:00:00').toLocaleDateString([],{month:'short',day:'numeric',year:'numeric'}):'Nov 24, 2026';
+ if(!G.length){$('#sKpi').innerHTML='<div class="empty">No completed games yet this season.</div>';$('#sChart').innerHTML=$('#sWeeks').innerHTML=$('#sPicks').innerHTML='';return}
+ const P=seasonPicks(),sp=wlp(P.filter(x=>x.kind==='spread')),un=wlp(P.filter(x=>x.kind==='under')),all=wlp(P),lv=wlp(P.filter(x=>x.g.live));
+ const pct=r=>r.w+r.l?(100*r.w/(r.w+r.l)).toFixed(1)+'%':'—';
+ $('#sKpi').innerHTML=[[recTxt(sp)+' · '+pct(sp),'spread picks'],[fmtU(sp.u)+'u','spread units'],[recTxt(un)+' · '+pct(un),'wind unders'],[fmtU(un.u)+'u','under units'],
+  [fmtU(all.u)+'u','total, '+(all.n?fmtU(100*all.u/all.n)+'% per pick':'')],[lv.n?recTxt(lv)+' · '+fmtU(lv.u)+'u':'—',lv.n?'live model v1.0 (since '+$('#sLive').textContent+')':'live model v1.0: first results after this week']]
+  .map(([b,t])=>`<div class="kpi"><b class="num">${esc(b)}</b><span class="mut">${esc(t)}</span></div>`).join('');
+ const weeks=[...new Set(G.map(g=>g.wk))].sort((a,b)=>a-b);let cum=0;const rows=weeks.map(w=>{const pw=P.filter(x=>x.g.wk===w),a=wlp(pw.filter(x=>x.kind==='spread')),b=wlp(pw.filter(x=>x.kind==='under'));
+  const live=G.some(g=>g.wk===w&&g.live),done=D.data_through&&w<=D.data_through.week;cum+=a.u+b.u;return {w,a,b,cum,live,done}});
+ $('#sWeeks').innerHTML='<thead><tr><th>Week</th><th class="r">Spreads</th><th class="r">Units</th><th class="r">Wind unders</th><th class="r">Units</th><th class="r">Season units</th></tr></thead><tbody>'+
+  rows.map(r=>`<tr><td>W${r.w}${r.live?' <span class="mut small">live</span>':''}${r.done?'':' <span class="mut small">in progress</span>'}</td><td class="r">${r.a.n?recTxt(r.a):'—'}</td><td class="r ${r.a.u>0?'pos':r.a.u<0?'neg':''}">${r.a.n?fmtU(r.a.u):''}</td><td class="r">${r.b.n?recTxt(r.b):'—'}</td><td class="r ${r.b.u>0?'pos':r.b.u<0?'neg':''}">${r.b.n?fmtU(r.b.u):''}</td><td class="r"><b>${fmtU(r.cum)}</b></td></tr>`).join('')+'</tbody>';
+ // cumulative units chart (single series; table above is the accessible view)
+ const W=Math.max(320,Math.min(860,$('#sChart').clientWidth||860)),Hh=W<500?190:220,pl=44,pr=16,pt=14,pb=28,xs=i=>pl+(rows.length<2?0:i*(W-pl-pr)/(rows.length-1)),vals=rows.map(r=>r.cum),lo=Math.min(0,...vals)-1,hi=Math.max(0,...vals)+1,ys=v=>pt+(hi-v)*(Hh-pt-pb)/(hi-lo);
+ const step=Math.max(1,Math.ceil((hi-lo)/5)),ticks=[];for(let t=Math.ceil(lo/step)*step;t<=hi;t+=step)ticks.push(t);
+ $('#sChart').innerHTML=`<svg viewBox="0 0 ${W} ${Hh}" width="100%" role="img" aria-label="Season units after each week" style="display:block">
+  ${ticks.map(t=>`<line x1="${pl}" x2="${W-pr}" y1="${ys(t)}" y2="${ys(t)}" stroke="var(--line)" stroke-width="${t===0?1.5:1}" ${t===0?'':'stroke-dasharray="2 4"'}/><text x="${pl-8}" y="${ys(t)+4}" text-anchor="end" font-size="12" fill="var(--mut)">${t>0?'+':''}${t}u</text>`).join('')}
+  ${rows.map((r,i)=>(rows.length<=10||W>=600||i%2===0||i===rows.length-1)?`<text x="${xs(i)}" y="${Hh-8}" text-anchor="middle" font-size="12" fill="var(--mut)">W${r.w}</text>`:'').join('')}
+  <polyline fill="none" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round" points="${rows.map((r,i)=>xs(i)+','+ys(r.cum)).join(' ')}"/>
+  ${rows.map((r,i)=>`<circle cx="${xs(i)}" cy="${ys(r.cum)}" r="4.5" fill="var(--ink)" stroke="var(--card)" stroke-width="2"/>`).join('')}
+  ${rows.map((r,i)=>`<rect data-i="${i}" x="${xs(i)-((W-pl-pr)/Math.max(1,rows.length-1))/2}" y="${pt}" width="${(W-pl-pr)/Math.max(1,rows.length-1)}" height="${Hh-pt-pb}" fill="transparent"/>`).join('')}
+  <line id="sCross" x1="0" x2="0" y1="${pt}" y2="${Hh-pb}" stroke="var(--mut)" stroke-width="1" visibility="hidden" pointer-events="none"/></svg>
+  <div id="sTip" style="position:absolute;pointer-events:none;display:none;background:var(--card);border:1px solid var(--line);border-radius:6px;padding:6px 9px;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,.12)"></div>`;
+ const svg=$('#sChart svg'),tip=$('#sTip'),cross=$('#sCross');
+ svg.querySelectorAll('rect[data-i]').forEach(el=>{const show=e=>{const r=rows[+el.dataset.i],i=+el.dataset.i,box=svg.getBoundingClientRect(),sx=box.width/W;
+  cross.setAttribute('x1',xs(i));cross.setAttribute('x2',xs(i));cross.setAttribute('visibility','visible');
+  tip.innerHTML=`<b>Week ${r.w}</b><br>Spreads ${r.a.n?recTxt(r.a)+' ('+fmtU(r.a.u)+'u)':'—'}<br>Unders ${r.b.n?recTxt(r.b)+' ('+fmtU(r.b.u)+'u)':'—'}<br>Season ${fmtU(r.cum)}u`;
+  tip.style.display='block';const x=xs(i)*sx;tip.style.left=Math.min(box.width-150,Math.max(0,x+10))+'px';tip.style.top=Math.max(0,ys(r.cum)*sx-70)+'px'};
+  el.addEventListener('mouseenter',show);el.addEventListener('click',show);el.addEventListener('mouseleave',()=>{tip.style.display='none';cross.setAttribute('visibility','hidden')})});
+ const pk=[...P].sort((x,y)=>y.g.wk-x.g.wk||x.g.ko.localeCompare(y.g.ko));
+ $('#sPicks').innerHTML='<thead><tr><th>Week</th><th>Game</th><th>Pick</th><th>Final</th><th class="r">Result</th></tr></thead><tbody>'+pk.map(x=>`<tr><td>W${x.g.wk}${x.g.live?' <span class="mut small">live</span>':''}</td><td>${esc(x.g.a)} @ ${esc(x.g.h)}</td><td><b>${esc(x.label)}</b> <span class="mut small">${esc(odds(x.o))} · ${esc(x.note)}</span></td><td>${esc(x.g.a)} ${x.g.as}, ${esc(x.g.h)} ${x.g.hs}</td><td class="r ${x.res>0?'pos':x.res<0?'neg':''}">${x.res>0?'Win':x.res<0?'Loss':'Push'} ${fmtU(x.u)}</td></tr>`).join('')+'</tbody>';
+ const need=G.filter(g=>g.lat!=null&&!(g.id in SEASON_WX)).length;
+ $('#sNote').textContent=need?`Loading archived forecasts for ${need} outdoor games to grade wind unders…`:`Wind unders graded with the archived forecast at kickoff for ${G.filter(g=>g.lat!=null).length} outdoor games (domes and retractable roofs excluded). Closing lines and prices from nflverse; a missing price counts as −110.`;
+ if(need&&!SWX_RUN)loadSeasonWx()}
+async function loadSeasonWx(){SWX_RUN=true;const G=(D.health||{}).season_games||[];SEASON_WX=SEASON_WX||LS.get('nflats_wxs_'+D.season,{});let n=0;
+ for(const g of G){if(g.lat==null||g.id in SEASON_WX)continue;const d0=g.ko.slice(0,10),d1=new Date(Date.parse(g.ko)+4*3600e3).toISOString().slice(0,10);
+  try{const r=await fetch(`${HFB()}/v1/forecast?latitude=${g.lat}&longitude=${g.lon}&start_date=${d0}&end_date=${d1}&hourly=wind_speed_10m&wind_speed_unit=mph&timezone=GMT`);
+   if(r.status===429){await sleep(61000);continue}if(!r.ok)continue;const j=await r.json(),i=(j.hourly.time||[]).indexOf(g.ko.slice(0,13)+':00');
+   if(i>=0&&j.hourly.wind_speed_10m[i]!=null){SEASON_WX[g.id]=Math.round(j.hourly.wind_speed_10m[i]*10)/10;n++;if(n%10===0)LS.set('nflats_wxs_'+D.season,SEASON_WX)}}catch(e){}
+  await sleep(150)}
+ LS.set('nflats_wxs_'+D.season,SEASON_WX);SWX_RUN=false;renderSeason()}
 function nBets(){return D.games.reduce((n,g)=>n+(calc(g).tag==='a'?1:0)+(totCalc(g).bet?1:0),0)}
 function totCalc(g){const w=g.weather,out={on:false};const outdoor=g.venue&&g.venue.outdoor!=null?g.venue.outdoor:g.roof==='outdoors';
  if(!outdoor||!w||w.wind==null)return out;out.wind=w.wind;if(w.wind<UND.wind)return out;
@@ -842,7 +905,7 @@ getWeek().then(d=>{D=d;
  const k0=LS.get('nflats_okey','');if(k0){$('#okey').value=k0;$('#ofeed').href=feedURL(k0)}
  SNAPS=(LS.get('nflats_odds_'+D.season+'_'+D.week,{snaps:[]}).snaps)||[];
  const last=LS.get('nflats_live_'+D.season+'_'+D.week,null);if(last&&last.txt){try{LIVE=parseFeed(last.txt).out;$('#ostat').textContent='Showing your last odds pull ('+ago(Object.values(LIVE)[0].ts)+'). Pull again for fresh prices.'}catch(e){}}
- render();renderRatings();renderBacktest();BETS=LS.get('nflats_bets',[]);renderLog();hEstimate();wxEstimate();renderHealth();
+ render();renderRatings();renderBacktest();BETS=LS.get('nflats_bets',[]);renderLog();hEstimate();wxEstimate();renderHealth();renderSeason();
  if(!wx||Date.now()-wx.ts>3*3600e3)setTimeout(()=>refreshWeather(true).catch(()=>{}),400);
  $('#store').textContent='Saved in this browser. Use Download backup now and then, or if you switch browsers.';
  const cr=LS.get('nflats_credits',null);if(cr&&!Object.keys(LIVE).length)$('#ostat').textContent=`Last refresh ${ago(cr.ts)} · ${cr.rem} credits left.`;
