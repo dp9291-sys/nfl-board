@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 from . import data, ratings, advanced as A, model as M, model2 as M2
 from .ratings import TEAMS, TIDX
+from .features import venue_for
 
 warnings.filterwarnings("ignore")
 INDOOR = {"dome", "closed"}
@@ -29,7 +30,8 @@ GROUPS = {
 def apply_weather(wk, wx):
     wk = wk.copy()
     for i, r in wk.iterrows():
-        outdoor = (r.roof if isinstance(r.roof, str) else "closed") not in INDOOR
+        v = venue_for(r.home_team, r.location, r.stadium, r.roof)
+        outdoor = bool(v and v["outdoor"])
         w = wx.get(r.game_id) if outdoor else None
         wk.at[i, "wind_mph"] = float(w["wind"]) if w else 0.0
         wk.at[i, "temp_f"] = float(w["temp"]) if w else 68.0
@@ -109,7 +111,8 @@ def main(season, week, wx_path=None):
         contrib = {k: float(coef[k] * getattr(g, k)) for k in feats}
         grp = {name: round(sum(contrib[k] for k in ks), 3) for name, ks in GROUPS.items()}
         base = v1g[g.game_id]
-        w = wx.get(g.game_id) if (g.roof if isinstance(g.roof, str) else "closed") not in INDOOR else None
+        _v = venue_for(g.home_team, g.location, g.stadium, g.roof)
+        w = wx.get(g.game_id) if (_v and _v["outdoor"]) else None
         et = M.effective_total(g.total_line, w["wind"] if w else 0)
         out_games.append({**{k: base[k] for k in ["game_id", "gameday", "weekday", "gametime", "home", "away", "stadium", "roof",
                                                   "location", "spread_line", "total_line", "home_ml", "away_ml", "home_spread_odds",
@@ -119,7 +122,8 @@ def main(season, week, wx_path=None):
                           "st_diff": round(float(g.st_diff), 3), "h_st": round(float(g.h2_off_st), 2), "a_st": round(float(g.a2_off_st), 2),
                           "weather": w, "eff_total": round(float(et), 1), "pmf_group": "lo" if et <= M.TOTAL_SPLIT else "hi",
                           "injuries": {"home": injuries.get(g.home_team, []), "away": injuries.get(g.away_team, [])},
-                          "mkt_dev": round(float(g.mkt_dev), 2) if not pd.isna(g.mkt_dev) else None})
+                          "mkt_dev": round(float(g.mkt_dev), 2) if not pd.isna(g.mkt_dev) else None,
+                          "venue": venue_for(g.home_team, g.location, g.stadium, g.roof)})
 
     teams = []
     for t in v1week["teams"]:

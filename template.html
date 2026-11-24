@@ -293,8 +293,8 @@ async function refreshLines(){const k=$('#okey').value.trim();if(!k){toast('Ente
   else{$('#ostat').textContent='The odds request did not go through (network or browser block). Try again, or use the fallback below.';$('#ofallback').open=true;$('#ofeed').href=feedURL(k)}}
  finally{$('#oRefresh').disabled=false}}
 const STAD={ARI:[33.528,-112.263],ATL:[33.755,-84.401],BAL:[39.278,-76.623],BUF:[42.774,-78.787],CAR:[35.226,-80.853],CHI:[41.862,-87.617],CIN:[39.095,-84.516],CLE:[41.506,-81.700],DAL:[32.748,-97.093],DEN:[39.744,-105.020],DET:[42.340,-83.046],GB:[44.501,-88.062],HOU:[29.685,-95.411],IND:[39.760,-86.164],JAX:[30.324,-81.638],KC:[39.049,-94.484],LA:[33.953,-118.339],LAC:[33.953,-118.339],LV:[36.091,-115.184],MIA:[25.958,-80.239],MIN:[44.974,-93.258],NE:[42.091,-71.264],NO:[29.951,-90.081],NYG:[40.813,-74.074],NYJ:[40.813,-74.074],PHI:[39.901,-75.168],PIT:[40.447,-80.016],SEA:[47.595,-122.332],SF:[37.403,-121.970],TB:[27.976,-82.503],TEN:[36.166,-86.771],WAS:[38.908,-76.864]};
-async function refreshWeather(silent){const prev=$('#ostat').textContent;const out=D.games.filter(g=>g.roof==='outdoors'||g.roof==='open');let n=0,fail=0;if(!silent)$('#ostat').textContent='Fetching forecasts…';
- for(const g of out){try{const [la,lo]=STAD[g.home];
+async function refreshWeather(silent){const prev=$('#ostat').textContent;const out=D.games.filter(g=>g.venue?g.venue.outdoor:(g.location!=='Neutral'&&(g.roof==='outdoors'||g.roof==='open')));let n=0,fail=0;if(!silent)$('#ostat').textContent='Fetching forecasts…';
+ for(const g of out){try{const [la,lo]=g.venue?[g.venue.lat,g.venue.lon]:STAD[g.home];
   const u=`${WBASE()}/v1/forecast?latitude=${la}&longitude=${lo}&hourly=temperature_2m,wind_speed_10m,wind_gusts_10m,precipitation_probability,precipitation,snowfall&wind_speed_unit=mph&temperature_unit=fahrenheit&precipitation_unit=inch&timezone=America%2FNew_York&forecast_days=16`;
   const j=(await (await fetch(u)).json()).hourly;const ko=g.gameday+'T'+g.gametime.slice(0,2);
   const i0=j.time.findIndex(t=>t.startsWith(ko));if(i0<0)continue;const ix=[i0,i0+1,i0+2].filter(i=>i<j.time.length);
@@ -388,7 +388,7 @@ function panelHTML(g,r){
  <h3 style="margin-top:18px">Full stats line: ${esc(lineLabel(g,Math.round(r.stats*10)/10))}</h3>
  <table class="bd">${Object.entries(g.groups).map(([k,v])=>`<tr><td>${esc(k)}</td><td>${f(v)}</td></tr>`).join('')}
  <tr><td>Baseline</td><td>${f(g.intercept)}</td></tr><tr class="tot"><td>Stats line</td><td>${f(r.stats)}</td></tr></table>
- <p class="note">Scoring environment: total ${g.total_line??'—'}${g.eff_total!==g.total_line?` → ${g.eff_total} after wind`:''} (${g.pmf_group==='lo'?'low: more games land on 3':'normal'}).${g.weather?` Forecast: ${esc(g.weather.phrase)}, ${g.weather.temp}°F, wind ${g.weather.wind} mph (gusts ${g.weather.gust}), precip ${g.weather.precip_pct}%.`:''}</p>
+ <p class="note">Scoring environment: total ${g.total_line??'—'}${g.eff_total!==g.total_line?` → ${g.eff_total} after wind`:''} (${g.pmf_group==='lo'?'low: more games land on 3':'normal'}).${g.venue&&g.venue.neutral?` Neutral site: ${esc(g.venue.name)}${g.venue.outdoor?'':' (indoors)'}; no home-field edge applied.`:''}${g.venue&&g.venue.neutral&&g.venue.altitude>=5000?` High altitude (${g.venue.altitude.toLocaleString()} ft), not separately modeled.`:''}${g.weather?` Forecast: ${esc(g.weather.phrase)}, ${g.weather.temp}°F, wind ${g.weather.wind} mph (gusts ${g.weather.gust}), precip ${g.weather.precip_pct}%.`:''}</p>
  ${Math.abs(r.stats-r.M)>=3.5?`<p class="note">A ${Math.abs(r.stats-r.M).toFixed(1)}-point gap between stats line and market usually means the market knows something (injuries, a QB's health). Check the news.</p>`:''}
  ${booksHTML(g,r)}
  ${matchHTML(g)}

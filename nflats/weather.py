@@ -8,7 +8,7 @@ import urllib.request
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from . import data, config
-from .features import STADIUM
+from .features import venue_for
 
 INDOOR = {"dome", "closed"}
 ET = ZoneInfo("America/New_York")
@@ -43,10 +43,10 @@ def fetch(season, week, log=print):
     wk = g[(g.season == season) & (g.week == week)]
     out = {}
     for r in wk.itertuples():
-        roof = r.roof if isinstance(r.roof, str) else "closed"  # retractable roofs: assume closed
-        if roof in INDOOR or r.location == "Neutral":
+        v = venue_for(r.home_team, r.location, r.stadium, r.roof)
+        if not v or not v["outdoor"]:
             continue
-        lat, lon, _ = STADIUM[r.home_team]
+        lat, lon = v["lat"], v["lon"]
         try:
             hh, mm = map(int, str(r.gametime).split(":"))
             ko = datetime(r.gameday.year, r.gameday.month, r.gameday.day, hh, mm, tzinfo=ET).astimezone(ZoneInfo("UTC"))

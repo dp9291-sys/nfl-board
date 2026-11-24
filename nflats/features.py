@@ -57,3 +57,67 @@ def situational(g):
     g["cold"] = ((~indoor) & (g["temp"].fillna(60) <= 32)).astype(float)
     g["div"] = g["div_game"].fillna(0).astype(float)
     return g
+
+
+# ---- Venues: real coordinates and roof type for neutral / international sites ----
+# The schedule's stadium_id and roof fields are unreliable for international games, so match on name.
+INTL_VENUES = [  # (name keys, lat, lon, roof, altitude_ft, display name)
+    (("tottenham",), 51.6043, -0.0664, "open", 100, "Tottenham Hotspur Stadium, London"),
+    (("wembley",), 51.5560, -0.2796, "open", 150, "Wembley Stadium, London"),
+    (("allianz", "bayern", "munich"), 48.2188, 11.6247, "open", 1700, "Allianz Arena, Munich"),
+    (("deutsche bank", "frankfurt"), 50.0686, 8.6455, "retractable", 330, "Deutsche Bank Park, Frankfurt"),
+    (("olympiastadion", "berlin"), 52.5147, 13.2395, "open", 160, "Olympiastadion, Berlin"),
+    (("corinthians", "neo qu"), -23.5453, -46.4742, "open", 2500, "Arena Corinthians, Sao Paulo"),
+    (("maracan",), -22.9122, -43.2302, "open", 30, "Maracana, Rio de Janeiro"),
+    (("melbourne", "cricket"), -37.8200, 144.9834, "open", 100, "Melbourne Cricket Ground"),
+    (("stade de france",), 48.9245, 2.3602, "open", 120, "Stade de France, Paris"),
+    (("bernab",), 40.4531, -3.6883, "retractable", 2130, "Santiago Bernabeu, Madrid"),
+    (("azteca", "banorte"), 19.3029, -99.1505, "open", 7350, "Estadio Banorte (Azteca), Mexico City"),
+    (("croke",), 53.3607, -6.2512, "open", 60, "Croke Park, Dublin"),
+]
+RETRACTABLE_HOME = {"DAL", "HOU", "IND", "ARI", "ATL"}
+ALTITUDE_HOME = {"DEN": 5280}
+
+
+def venue_for(home_team, location, stadium, roof):
+    """Return {lat, lon, outdoor, altitude, name, neutral} or None if the venue is unknown."""
+    stadium_l = str(stadium or "").lower()
+    roof = roof if isinstance(roof, str) else None
+    if location == "Neutral":
+        for keys, lat, lon, vroof, alt, name in INTL_VENUES:
+            if any(k in stadium_l for k in keys):
+                outdoor = vroof == "open" or (vroof == "retractable" and roof == "open")
+                return {"lat": lat, "lon": lon, "outdoor": outdoor, "altitude": alt, "name": name, "neutral": True}
+        team = _stadium_team(stadium_l)  # a US stadium used as a neutral site (e.g. Super Bowl)
+        if team:
+            v = venue_for(team, "Home", stadium, roof)
+            if v:
+                v["neutral"] = True
+            return v
+        return None  # unknown venue: no guess
+    if home_team not in STADIUM:
+        return None
+    lat, lon, _ = STADIUM[home_team]
+    if home_team in RETRACTABLE_HOME:
+        outdoor = roof == "open"  # roof decision not known in advance -> treat as closed
+    else:
+        outdoor = roof in ("outdoors", "open")
+    return {"lat": lat, "lon": lon, "outdoor": bool(outdoor), "altitude": ALTITUDE_HOME.get(home_team, 0),
+            "name": str(stadium or home_team), "neutral": False}
+
+
+_ST_MAP = None
+
+
+def _stadium_team(stadium_l):
+    """Map a stadium name to the NFL team that normally plays there (from the schedule's home games)."""
+    global _ST_MAP
+    if _ST_MAP is None:
+        try:
+            from . import data
+            g = data.load_games()
+            h = g[(g.location != "Neutral") & g.stadium.notna() & (g.season >= 2018)]
+            _ST_MAP = h.groupby(h.stadium.str.lower()).home_team.agg(lambda x: x.mode().iloc[0]).to_dict()
+        except Exception:
+            _ST_MAP = {}
+    return _ST_MAP.get(stadium_l)
