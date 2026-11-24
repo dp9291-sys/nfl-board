@@ -106,7 +106,7 @@ textarea{font:14px ui-monospace,monospace;width:100%;border:1px solid var(--line
 <header class="hero band"><div class="wrap">
 <button id="lockNow" style="float:right;background:transparent;color:#fff;border-color:#ffffff88;display:none">Lock</button>
 <h1 id="title">Week board loading…</h1>
-<p id="sub">Special teams is the one signal that has beaten closing spreads in walk-forward tests (2015–2026, with a false-discovery correction). Each pick is that lean plus any news you add, priced at the best line among your sportsbooks with a smooth key-number model. Expect a thin edge, about 2–5% per bet, with losing seasons.</p>
+<p id="sub">Special teams is the one signal that has beaten closing spreads in walk-forward tests (2015–2026, with a false-discovery correction). Each pick is that lean plus any news you add, priced at the best line among your sportsbooks with a smooth key-number model. The edge is unproven: it held in 2016–2026 but fell below break-even in 2000–2012, so bet small.</p>
 <div class="kpis" id="kpis"></div>
 </div></header>
 
@@ -159,11 +159,12 @@ textarea{font:14px ui-monospace,monospace;width:100%;border:1px solid var(--line
 
 <section class="band" style="background:var(--turf2)"><div class="wrap">
 <h2 id="btTitle">Backtest: how picks work now</h2>
-<div class="callout"><b>Bet the special-teams lean (0.5+ pts) at the best of your books, close to kickoff.</b> It's the simplest rule tested and the most trustworthy, because it has the fewest settings that could have been tuned to the past. The old confidence tiers were retired after a quality check showed their record depended on one fine setting of the cover-odds tables.</div>
+<div class="callout"><b>Bet the special-teams lean (0.5+ pts) at the best of your books, close to kickoff.</b> It's the simplest rule tested, with the fewest settings that could have been tuned to the past. But in 2000–2012, seasons never used to build it, it won only 51.7%, below the 52.4% break-even, so the edge is thin and unproven: bet small. The old confidence tiers were retired after a quality check showed their record depended on one fine setting of the cover-odds tables.</div>
 <div class="scroll"><table class="t stack"><thead><tr><th>Test (walk-forward)</th><th class="r">Bets</th><th class="r">Win %</th><th class="r">Return</th><th>Verdict</th></tr></thead><tbody>
 <tr><td><b>Special-teams lean 0.5+, best Arizona book near kickoff, 2021–26</b></td><td class="r">604</td><td class="r">55.2%</td><td class="r">+5.1%</td><td>The rule</td></tr>
 <tr><td>Same, best Arizona book at the Tuesday opener</td><td class="r">601</td><td class="r">53.5%</td><td class="r">+2.0%</td><td>Bet late, not early</td></tr>
 <tr><td>Same, single posted closing line, 2018–26</td><td class="r">941</td><td class="r">53.2%</td><td class="r">+2.7%</td><td>Shopping adds ~2 pts</td></tr>
+<tr><td><b>Same rule, 2000–2012 (never used in development)</b></td><td class="r">1,675</td><td class="r">51.7%</td><td class="r">+0.6%</td><td><b>Below break-even</b></td></tr>
 <tr><td>Bigger leans only (1.0+ pts), Arizona books</td><td class="r">148</td><td class="r">51.4%</td><td class="r">−2.1%</td><td>No better</td></tr>
 <tr><td>Leans that pass the cover-model price check</td><td class="r">427</td><td class="r">53.1%</td><td class="r">+1.9%</td><td>Filter didn't help</td></tr>
 <tr><td>Old Tier A at its exact settings, 2018–26</td><td class="r">308</td><td class="r">56.4%</td><td class="r">+11.6%</td><td>Fragile</td></tr>
@@ -509,7 +510,7 @@ function whyHTML(g,r){const sg=r.side==='home'?1:-1,pl=r.side==='home'?-r.L:r.L,
   if((a===3||a===7)&&r.p.push>=.05)out.push(`Getting the full ${a} matters: about ${Math.round(r.p.push*100)}% of games at this line land exactly on ${a}, a push instead of a loss.`);
   else if(pl===3.5||pl===7.5)out.push(`At ${fmtS(pl)}, a ${Math.floor(a)}-point loss still covers.`);
   else if(pl===-2.5||pl===-6.5)out.push(`At ${fmtS(pl)}, any ${Math.ceil(a)}-point win covers.`);
-  out.push('Bets like this won 55% at the best Arizona book near kickoff in 2021–2026; expect a thin edge and losing stretches.');
+  out.push('Bets like this won 55% at the best Arizona book in 2021–2026, but only 51.7% at closing lines in 2000–2012, so treat the edge as thin and unproven.');
   if(Math.abs(r.stats-r.M)>=3)out.push(Math.sign(r.stats-r.M)===sg?'The full stats model leans this way too, and lines tend to move toward it, so there’s no reason to wait.':'The full stats model leans the other way, and lines tend to move toward it, so waiting may get a better number.')}
  else if(r.worse)out.push(`It leans ${esc(N(r.side==='home'?g.home:g.away))} (${esc(st)}), but your books only offer ${esc(pickLbl(g,r.side,r.L))} against the market’s ${esc(pickLbl(g,r.side,r.M))}. Every backtested bet was at the market number or better.`);
  else out.push(`No bet: ${esc(st)}${Math.abs(r.news)>=.05?` and your news adds ${Math.abs(r.news).toFixed(1)}`:''}, under the ${thr}-point threshold.`);
