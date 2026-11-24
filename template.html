@@ -207,6 +207,22 @@ textarea{font:14px ui-monospace,monospace;width:100%;border:1px solid var(--line
 <tr><td>Offensive-line continuity, 2016–26</td><td class="r">119</td><td class="r">47.1%</td><td class="r">—</td><td>No edge (t 0.24)</td></tr>
 </tbody></table></div>
 <p class="note">Wind unders use the actual game-time wind; the board uses the kickoff-hour forecast, which adds some error. Across 1999–2026, unders in 10+ mph wind won 54.7% (1,782 games). Stakes assume about a 2% edge to allow for forecast error. Domes and retractable roofs are excluded.</p>
+<h3 style="margin-top:22px">Checks on the design itself (model v1.0)</h3>
+<div class="scroll"><table class="t stack"><thead><tr><th>Question</th><th>Result</th><th>Decision</th></tr></thead><tbody>
+<tr><td>Does special teams make the projection closer to final margins than the closing line?</td><td>Barely: average miss 9.753 vs 9.758 pts (t 0.37); cover odds slightly better than a coin flip</td><td>Its edge is in which side covers, not margin size: thin</td></tr>
+<tr><td>Size stakes by the model's expected value instead of a flat 2% edge?</td><td>No. The model ranks bets backwards (54.4% for its least-favored third, 52.9% for its most-favored); bankroll growth: flat +0.145, EV-based +0.031, recalibrated −0.345</td><td>Keep flat stakes</td></tr>
+<tr><td>Does it beat the sharp market, not just the consensus?</td><td>53.9% graded at Pinnacle's closing line (586 bets); your best Arizona line averaged 0.24 pts better than Pinnacle's close</td><td>Holds, thinly</td></tr>
+<tr><td>Opponent-adjusted or per-play special-teams ratings</td><td>Correlate 0.99 with the current one; t 2.85 and 3.15 vs 3.10; add nothing on top</td><td>Keep current</td></tr>
+<tr><td>Does the edge change when books disagree, or in wind?</td><td>No (interaction t −1.05 and −0.29)</td><td>No change</td></tr>
+</tbody></table></div>
+<h3 style="margin-top:22px">Known limits of these backtests</h3>
+<ul class="small" style="max-width:860px;padding-left:18px;line-height:1.55">
+<li>Ratings use only games before each week, and weights only earlier seasons. Lines are closing lines (or your downloaded snapshots), which matches betting near kickoff.</li>
+<li><b>Wind unders used actual game-time wind.</b> The board uses forecasts. The weather forecast archive download (above) tests the rule with the forecasts you would actually have had.</li>
+<li>Injury data is each week's final report (out by Friday or Saturday): fine for bets near kickoff, not for Tuesday bets. The full stats line also knew each game's actual starting QB; it is context only and not in the projection.</li>
+<li>2013–2026 was used heavily while building the model, and 2000–2012 has now been examined once. The clean test is model v1.0's live record from Nov 24, 2026 on, saved in the encrypted prediction log.</li>
+<li>Ranges allow for good and bad seasons (season-clustered), since bets within a season are not independent.</li>
+</ul>
 <details style="margin-top:18px"><summary class="small"><b>Earlier analysis: retired tiers, all 30 signals, line history</b></summary>
 <div class="callout" id="btCall"></div>
 <h3>Retired confidence tiers (for reference)</h3>
@@ -259,6 +275,12 @@ textarea{font:14px ui-monospace,monospace;width:100%;border:1px solid var(--line
 <p class="note" id="hEst">Loading plan…</p>
 <div class="track" style="max-width:520px;margin-top:6px"><div class="fill" id="hBar" style="width:0%"></div></div>
 <p class="note" id="hStat"></p>
+<h3 style="margin-top:22px">Weather forecast archive download</h3>
+<p class="mut small" style="max-width:820px">Free, no key needed. Pulls the archived forecast each outdoor game had near kickoff (2021–2026), plus the forecasts from 1, 2 and 3 days out (2024–2026), from Open-Meteo. Claude uses it to check the wind-under rule with the forecasts you would actually have had, not the actual game-day wind. About 1,500 requests, roughly 8 minutes; resumable like the line download.</p>
+<div class="row"><button class="pri" id="wxStart">Start</button><button id="wxDl" disabled>Download file</button><button id="wxClear" class="small">Clear saved data</button></div>
+<p class="note" id="wxEst">Loading plan…</p>
+<div class="track" style="max-width:520px;margin-top:6px"><div class="fill" id="wxBar" style="width:0%"></div></div>
+<p class="note" id="wxStat"></p>
 </div></section>
 <section class="band" style="background:var(--turf2)"><div class="wrap">
 <h2>Using this board</h2>
@@ -452,6 +474,38 @@ const HDB={db:null,async open(){if(this.db)return this.db;return this.db=await n
  put(k,v){return this.tx('readwrite',st=>st.put(v,k))},keys(){return this.tx('readonly',st=>st.getAllKeys())},
  async all(){const ks=await this.keys(),vs=await this.tx('readonly',st=>st.getAll());return Object.fromEntries(ks.map((k,i)=>[k,vs[i]]))},clear(){return this.tx('readwrite',st=>st.clear())}};
 let PLAN=null,HRUN=false,HLOCK=null;
+/* ---------- archived weather forecasts ---------- */
+const WXDB={db:null,async open(){if(this.db)return this.db;return this.db=await new Promise((res,rej)=>{const r=indexedDB.open('nflats_wxhist',1);r.onupgradeneeded=()=>r.result.createObjectStore('g');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})},
+ tx(mode,fn){return new Promise((res,rej)=>{const t=this.db.transaction('g',mode);const r=fn(t.objectStore('g'));t.oncomplete=()=>res(r&&r.result);t.onerror=()=>rej(t.error)})},
+ put(k,v){return this.tx('readwrite',st=>st.put(v,k))},keys(){return this.tx('readonly',st=>st.getAllKeys())},
+ async all(){const ks=await this.keys(),vs=await this.tx('readonly',st=>st.getAll());return Object.fromEntries(ks.map((k,i)=>[k,vs[i]]))},clear(){return this.tx('readwrite',st=>st.clear())}};
+let WXPLAN=null,WXRUN=false;
+const HFB=()=>LS.get('nflats_hfbase','https://historical-forecast-api.open-meteo.com'),PRB=()=>LS.get('nflats_prbase','https://previous-runs-api.open-meteo.com');
+async function wxEstimate(){try{if(!WXPLAN)WXPLAN=await (await fetch('wx_plan.json',{cache:'no-cache'})).json();await WXDB.open();const done=new Set(await WXDB.keys()),left=WXPLAN.games.filter(x=>!done.has(x[0]));
+ const calls=left.reduce((n,x)=>n+1+(x[4]>=WXPLAN.prev_runs_from?1:0),0);
+ $('#wxEst').textContent=`${WXPLAN.games.length} outdoor games: ${left.length} still to pull (about ${calls} requests). ${done.size} saved so far.`;
+ $('#wxBar').style.width=(100*(WXPLAN.games.length-left.length)/WXPLAN.games.length)+'%';$('#wxDl').disabled=!done.size;return left}catch(e){$('#wxEst').textContent='Could not load the plan ('+e.message+').'}}
+function wxPick(j,ko,names){const T=(j.hourly||{}).time||[],t0=ko.slice(0,13)+':00',i=T.indexOf(t0);if(i<0)return {err:'kickoff hour not in response'};
+ const o={};for(const n of names){const a=j.hourly[n];if(!a)continue;o[n]=a[i];const w=a.slice(i,i+4).filter(v=>v!=null);o[n+'_avg']=w.length?+(w.reduce((s,v)=>s+v,0)/w.length).toFixed(1):null}return o}
+async function wxGet(u){for(let k=0;k<3;k++){let r;try{r=await fetch(u)}catch(e){await sleep(3000);continue}
+ if(r.status===429){$('#wxStat').textContent='Rate limited by Open-Meteo; waiting a minute…';await sleep(61000);continue}
+ if(!r.ok)return {err:'HTTP '+r.status+': '+(await r.text()).slice(0,140)};return await r.json()}return {err:'network'}}
+async function wxRun(){if(WXRUN){WXRUN=false;return}const left=await wxEstimate();if(!left||!left.length){toast('Nothing left to pull');return}
+ WXRUN=true;$('#wxStart').textContent='Pause';try{HLOCK=await navigator.wakeLock?.request('screen')}catch(e){}
+ const tot=WXPLAN.games.length;let done=tot-left.length,errs=0;
+ for(const [gid,season,lat,lon,ko] of left){if(!WXRUN)break;
+  const d0=ko.slice(0,10),d1=new Date(Date.parse(ko)+4*3600e3).toISOString().slice(0,10);
+  const q=`latitude=${lat}&longitude=${lon}&start_date=${d0}&end_date=${d1}&wind_speed_unit=mph&timezone=GMT`;
+  const h=await wxGet(`${HFB()}/v1/forecast?${q}&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m,precipitation,temperature_2m`);
+  const rec={ko,h:h.err?{err:h.err}:wxPick(h,ko,['wind_speed_10m','wind_gusts_10m','wind_direction_10m','precipitation','temperature_2m'])};
+  if(ko>=WXPLAN.prev_runs_from){const p=await wxGet(`${PRB()}/v1/forecast?${q}&hourly=wind_speed_10m_previous_day1,wind_speed_10m_previous_day2,wind_speed_10m_previous_day3,wind_gusts_10m_previous_day1,wind_gusts_10m_previous_day2`);
+   rec.p=p.err?{err:p.err}:wxPick(p,ko,['wind_speed_10m_previous_day1','wind_speed_10m_previous_day2','wind_speed_10m_previous_day3','wind_gusts_10m_previous_day1','wind_gusts_10m_previous_day2'])}
+  if(rec.h.err){errs++;if(errs>=5){$('#wxStat').textContent='Stopped after repeated errors: '+rec.h.err+'. Press Start to retry.';break}}else errs=0;
+  await WXDB.put(gid,rec);done++;$('#wxBar').style.width=(100*done/tot)+'%';$('#wxStat').textContent=`Pulled ${done} of ${tot} games…`+(rec.p&&rec.p.err?' (earlier-day forecasts unavailable: '+rec.p.err.slice(0,60)+')':'');$('#wxDl').disabled=false;await sleep(250)}
+ WXRUN=false;$('#wxStart').textContent='Start';try{HLOCK&&HLOCK.release()}catch(e){}const l2=await wxEstimate();if(l2&&!l2.length)$('#wxStat').textContent=`Done: all ${tot} games saved. Press Download file and send it to Claude.`}
+async function wxDownload(){const all=await WXDB.all();const blob=new Blob([JSON.stringify({v:1,created:new Date().toISOString(),games:all})],{type:'application/json'}),a=document.createElement('a');
+ a.href=URL.createObjectURL(blob);a.download='nfl-weather-forecasts-'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();a.remove();
+ $('#wxStat').textContent=`File ready (${Object.keys(all).length} games). Send it to Claude.`}
 async function hPlan(){if(!PLAN){PLAN=await (await fetch('history_snapshots.json',{cache:'no-cache'})).json();
   const ss=[...new Set(PLAN.snaps.map(x=>x[3]))];for(const id of ['hFrom','hTo'])$('#'+id).innerHTML=ss.map(y=>`<option>${y}</option>`).join('');
   $('#hFrom').value=String(Math.max(ss[0],ss[ss.length-1]-5));$('#hTo').value=String(ss[ss.length-1])}return PLAN}
@@ -652,7 +706,7 @@ function render(){exposure();
  if(srt==='pick'){const rk={a:0,b:1,pass:2};rows.sort((x,y)=>(tcls(x.r,totCalc(x.g))==='ta'?0:1)-(tcls(y.r,totCalc(y.g))==='ta'?0:1)||Math.abs(y.r.lean)-Math.abs(x.r.lean))}else if(srt==='ev')rows.sort((x,y)=>Math.abs(y.r.lean)-Math.abs(x.r.lean));else if(srt==='gap')rows.sort((x,y)=>Math.abs(y.r.stats-y.r.M)-Math.abs(x.r.stats-x.r.M));
  $('#board').innerHTML=rows.map(({g,r})=>`<details class="g ${tcls(r,totCalc(g))}" data-id="${esc(g.game_id)}" ${open.has(g.game_id)?'open':''}>${rowHTML(g,r)}${open.has(g.game_id)?panelHTML(g,r):''}</details>`).join('');
  const nb=nBets();
- $('#kpis').innerHTML=[[nb,'bets this week (spreads + wind unders)'],['55.2%','special-teams lean at the best Arizona book near kickoff, 2021–26 (604 bets, +5.1%)'],[D.games.filter(g=>g.weather&&g.weather.wind>=15).length,'windy games (15+ mph)']].map(([b,s])=>`<div class="kpi"><b>${esc(b)}</b><span>${esc(s)}</span></div>`).join('');
+ $('#kpis').innerHTML=[[nb,'bets this week (spreads + wind unders)'],['52.6%','special-teams lean at closing lines, 2000–26 (3,541 bets); about 53.6% with line shopping, break-even 52.4%'],[D.games.filter(g=>g.weather&&g.weather.wind>=15).length,'windy games (15+ mph)']].map(([b,s])=>`<div class="kpi"><b>${esc(b)}</b><span>${esc(s)}</span></div>`).join('');
  renderBooks();renderTeasers(rows);LS.set('nflats_adj_'+D.season+'_'+D.week,ADJ);LS.set('nflats_set2',S);
 }
 
@@ -747,6 +801,7 @@ $('#board').addEventListener('click',e=>{const t=e.target.closest('button');if(!
 $('#okey').addEventListener('input',e=>{const k=e.target.value.trim();$('#ofeed').href=k?feedURL(k):'#';LS.set('nflats_okey',k)});
 $('#oRefresh').addEventListener('click',refreshLines);
 $('#expLog').addEventListener('click',exportLog);
+$('#wxStart').addEventListener('click',wxRun);$('#wxDl').addEventListener('click',wxDownload);$('#wxClear').addEventListener('click',async()=>{if(WXRUN)return;await WXDB.open();await WXDB.clear();wxEstimate();toast('Saved forecasts cleared')});
 $('#mbList').addEventListener('change',e=>{const k=e.target.dataset.bk;if(!k)return;const m=myBooks();e.target.checked?m.add(k):m.delete(k);MYB=[...m];LS.set('nflats_books',MYB);render()});
 $('#hStart').addEventListener('click',hRun);$('#hDl').addEventListener('click',hDownload);$('#hFrom').addEventListener('change',hEstimate);$('#hTo').addEventListener('change',hEstimate);$('#hKind').addEventListener('change',hEstimate);
 $('#hClear').addEventListener('click',async()=>{if(HRUN)return;await HDB.open();await HDB.clear();hEstimate();toast('Saved line history cleared')});$('#lockNow').addEventListener('click',()=>{try{localStorage.removeItem('nflats_lockkey')}catch(e){}location.reload()});$('#wRefresh').addEventListener('click',refreshWeather);
@@ -776,7 +831,7 @@ getWeek().then(d=>{D=d;
  const k0=LS.get('nflats_okey','');if(k0){$('#okey').value=k0;$('#ofeed').href=feedURL(k0)}
  SNAPS=(LS.get('nflats_odds_'+D.season+'_'+D.week,{snaps:[]}).snaps)||[];
  const last=LS.get('nflats_live_'+D.season+'_'+D.week,null);if(last&&last.txt){try{LIVE=parseFeed(last.txt).out;$('#ostat').textContent='Showing your last odds pull ('+ago(Object.values(LIVE)[0].ts)+'). Pull again for fresh prices.'}catch(e){}}
- render();renderRatings();renderBacktest();BETS=LS.get('nflats_bets',[]);renderLog();hEstimate();renderHealth();
+ render();renderRatings();renderBacktest();BETS=LS.get('nflats_bets',[]);renderLog();hEstimate();wxEstimate();renderHealth();
  if(!wx||Date.now()-wx.ts>3*3600e3)setTimeout(()=>refreshWeather(true).catch(()=>{}),400);
  $('#store').textContent='Saved in this browser. Use Download backup now and then, or if you switch browsers.';
  const cr=LS.get('nflats_credits',null);if(cr&&!Object.keys(LIVE).length)$('#ostat').textContent=`Last refresh ${ago(cr.ts)} · ${cr.rem} credits left.`;
