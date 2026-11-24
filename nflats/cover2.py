@@ -103,7 +103,7 @@ def export(par):
                 for b in par[g]} for g in par}
 
 
-RULE = {"thr": 0.5, "edge": 0.04, "cap": 0.02}
+RULE = {"thr": 0.5, "edge": 0.02, "cap": 0.02}
 
 
 def enrich(path):

@@ -1,6 +1,8 @@
 """Build the snapshot plan for the line-history download (python -m nflats.history_schedule OUT.json).
 
 Per NFL week:
+  ahead : Tuesday 17:00 UTC of the week before (look-ahead lines, posted a week early)
+  sun   : Monday 04:30 UTC before the open (Sunday night ET, right after the previous week's games)
   open  : Tuesday 17:00 UTC before the week's first kickoff (first stable look-ahead number)
   fri   : Friday 17:00 UTC before the weekend games (midweek, after most injury news)
   close : 10 minutes before each distinct kickoff time
@@ -39,7 +41,14 @@ def build(first=2020, last=None):
         t_open = datetime(tue.year, tue.month, tue.day, 17, tzinfo=UTC)
         if t_open > first_ko - timedelta(hours=24):
             t_open = first_ko - timedelta(hours=48)
-        snaps.append([f"{s}-{w:02d}-open", t_open.strftime("%Y-%m-%dT%H:%M:%SZ"), "open", s, [gid for gid, _ in lst]])
+        ids = [gid for gid, _ in lst]
+        t_ahead = t_open - timedelta(days=7)
+        t_sun = t_open - timedelta(hours=36, minutes=30)
+        if t_ahead >= datetime(2020, 6, 10, tzinfo=UTC):
+            snaps.append([f"{s}-{w:02d}-ahead", t_ahead.strftime("%Y-%m-%dT%H:%M:%SZ"), "ahead", s, ids])
+        if t_sun >= datetime(2020, 6, 10, tzinfo=UTC) and t_sun < first_ko - timedelta(hours=12):
+            snaps.append([f"{s}-{w:02d}-sun", t_sun.strftime("%Y-%m-%dT%H:%M:%SZ"), "sun", s, ids])
+        snaps.append([f"{s}-{w:02d}-open", t_open.strftime("%Y-%m-%dT%H:%M:%SZ"), "open", s, ids])
         sun = max(k for _, k in lst).astimezone(ET).date()
         sun = sun - timedelta(days=(sun.weekday() - 6) % 7)  # the week's Sunday
         fri = sun - timedelta(days=2)
