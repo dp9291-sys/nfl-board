@@ -167,6 +167,15 @@ textarea{font:14px ui-monospace,monospace;width:100%;border:1px solid var(--line
 <div class="scroll"><table class="t stack" id="log"></table></div>
 </div></section>
 
+<section class="band"><div class="wrap">
+<h2>Line history download</h2>
+<p class="mut small" style="max-width:820px">A one-time pull of historical lines from your Odds API account: the Tuesday opener, Friday midweek, and 10 minutes before every kickoff, for Pinnacle plus 9 US books. Send Claude the file it produces, and it will test betting the opener vs the close, which line moves predict covers, and when a US book lagging Pinnacle is worth betting. Keep this page open while it runs (it keeps the screen awake). If it stops, press Start again and it picks up where it left off.</p>
+<div class="row"><label>From season<select id="hFrom"></select></label><label>To season<select id="hTo"></select></label>
+<button class="pri" id="hStart">Start</button><button id="hDl" disabled>Download file</button><button id="hClear" class="small">Clear saved data</button></div>
+<p class="note" id="hEst">Loading plan…</p>
+<div class="track" style="max-width:520px;margin-top:6px"><div class="fill" id="hBar" style="width:0%"></div></div>
+<p class="note" id="hStat"></p>
+</div></section>
 <section class="band" style="background:var(--turf2)"><div class="wrap">
 <h2>Using this board</h2>
 <div class="small" style="max-width:820px"><p><b>Odds:</b> press Refresh lines whenever you want current prices (4 credits per refresh). Each refresh is saved on this device, so line movement builds up through the week.</p>
@@ -334,6 +343,47 @@ function getWeek(){const el=document.getElementById('weekdata');if(el)return Pro
    catch(err){$('#lockMsg').textContent='Wrong PIN. Try again.';$('#lockPin').select()}finally{$('#lockBtn').disabled=false}});
   const saved=LS.get('nflats_lockkey',null);
   if(saved)openWith(b64d(saved),P).then(res).catch(()=>{try{localStorage.removeItem('nflats_lockkey')}catch(e){}show()});else show()})}
+/* ---------- line history download ---------- */
+const HDB={db:null,async open(){if(this.db)return this.db;return this.db=await new Promise((res,rej)=>{const r=indexedDB.open('nflats_hist',1);r.onupgradeneeded=()=>r.result.createObjectStore('snap');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})},
+ tx(mode,fn){return new Promise((res,rej)=>{const t=this.db.transaction('snap',mode);const r=fn(t.objectStore('snap'));t.oncomplete=()=>res(r&&r.result);t.onerror=()=>rej(t.error)})},
+ put(k,v){return this.tx('readwrite',st=>st.put(v,k))},keys(){return this.tx('readonly',st=>st.getAllKeys())},
+ async all(){const ks=await this.keys(),vs=await this.tx('readonly',st=>st.getAll());return Object.fromEntries(ks.map((k,i)=>[k,vs[i]]))},clear(){return this.tx('readwrite',st=>st.clear())}};
+let PLAN=null,HRUN=false,HLOCK=null;
+async function hPlan(){if(!PLAN){PLAN=await (await fetch('history_snapshots.json',{cache:'no-cache'})).json();
+  const ss=[...new Set(PLAN.snaps.map(x=>x[3]))];for(const id of ['hFrom','hTo'])$('#'+id).innerHTML=ss.map(y=>`<option>${y}</option>`).join('');
+  $('#hFrom').value=String(Math.max(ss[0],ss[ss.length-1]-5));$('#hTo').value=String(ss[ss.length-1])}return PLAN}
+const hSel=()=>PLAN.snaps.filter(x=>x[3]>=+$('#hFrom').value&&x[3]<=+$('#hTo').value);
+async function hEstimate(){try{await hPlan();await HDB.open();const done=new Set(await HDB.keys()),sel=hSel(),left=sel.filter(x=>!done.has(x[0]));
+ $('#hEst').textContent=`${sel.length} snapshots for ${$('#hFrom').value}–${$('#hTo').value}: ${left.length} still to pull, about ${(left.length*PLAN.credits_per_call).toLocaleString()} credits (${PLAN.credits_per_call} each). ${done.size} saved so far.`;
+ $('#hBar').style.width=(sel.length?100*(sel.length-left.length)/sel.length:0)+'%';$('#hDl').disabled=!done.size;return {sel,left}}catch(e){$('#hEst').textContent='Could not load the plan ('+e.message+').'}}
+function hParse(j,snap){const out={},evs=j.data||[];
+ for(const gid of snap[4]){const [s,w,H,A,ko]=PLAN.games[gid];const kot=Date.parse(ko);
+  const ev=evs.find(e=>{const h=TEAMN[e.home_team],a=TEAMN[e.away_team];return ((h===H&&a===A)||(h===A&&a===H))&&Math.abs(Date.parse(e.commence_time)-kot)<36*3600e3});
+  if(!ev)continue;const b={};
+  for(const bk of ev.bookmakers||[]){let L=null,oh=null,oa=null,tot=null;
+   for(const mk of bk.markets||[]){if(mk.key==='spreads')for(const o of mk.outcomes||[]){const ab=TEAMN[o.name];if(ab===H){L=-(+o.point);oh=toAm(o.price)}else if(ab===A)oa=toAm(o.price)}
+    if(mk.key==='totals')for(const o of mk.outcomes||[])if(o.name==='Over')tot=+o.point}
+   if(L!=null||tot!=null)b[bk.key]=[L,oh,oa,tot]}
+  out[gid]=b}
+ return {t:j.timestamp||snap[1],k:snap[2],g:out}}
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function hRun(){if(HRUN){HRUN=false;return}const key=$('#okey').value.trim();if(!key){toast('Enter your API key at the top first');return}
+ const est=await hEstimate();if(!est||!est.left.length){toast('Nothing left to pull for these seasons');return}
+ HRUN=true;$('#hStart').textContent='Pause';try{HLOCK=await navigator.wakeLock?.request('screen')}catch(e){}
+ let n=0,errs=0,rem=null;const total=est.sel.length,done0=total-est.left.length;
+ for(const snap of est.left){if(!HRUN)break;
+  const u=OBASE()+'/v4/historical/sports/americanfootball_nfl/odds?apiKey='+encodeURIComponent(key)+'&bookmakers='+PLAN.books.join(',')+'&markets=spreads,totals&oddsFormat=american&date='+snap[1];
+  let r;try{r=await fetch(u);if(r.status===429){await sleep(5000);r=await fetch(u)}}catch(e){errs++;$('#hStat').textContent='Network error ('+errs+'); retrying…';await sleep(3000);if(errs>=3)break;continue}
+  if(r.status===401||r.status===403){const m=await r.text();$('#hStat').textContent='Stopped: '+(m.includes('quota')||m.includes('limit')?'out of credits':'key rejected')+'. Saved progress is kept; press Start to resume later.';break}
+  if(!r.ok){errs++;if(errs>=3){$('#hStat').textContent='Stopped after repeated errors (HTTP '+r.status+'). Press Start to retry.';break}continue}
+  errs=0;rem=r.headers.get('x-requests-remaining');const j=await r.json();await HDB.put(snap[0],hParse(j,snap));n++;
+  $('#hBar').style.width=(100*(done0+n)/total)+'%';$('#hStat').textContent=`Pulled ${done0+n} of ${total} snapshots${rem!=null?' · '+Number(rem).toLocaleString()+' credits left':''}…`;
+  $('#hDl').disabled=false;await sleep(250)}
+ HRUN=false;$('#hStart').textContent='Start';try{HLOCK&&HLOCK.release()}catch(e){}
+ const e2=await hEstimate();if(e2&&!e2.left.length)$('#hStat').textContent=`Done: all ${total} snapshots saved. Press Download file and send it to Claude.`}
+async function hDownload(){const all=await HDB.all();const blob=new Blob([JSON.stringify({v:1,books:PLAN.books,created:new Date().toISOString(),games:PLAN.games,snaps:all})],{type:'application/json'});
+ const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='nfl-line-history-'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();a.remove();
+ $('#hStat').textContent=`File ready (${(blob.size/1048576).toFixed(1)} MB, ${Object.keys(all).length} snapshots). Send it to Claude in your chat.`}
 function adj(g){return ADJ[g.game_id]||(ADJ[g.game_id]={})}
 function qbVal(team,id,listed){if(!id)return D.qb_prior;if(listed&&listed.id===id)return listed.val;const q=(D.team_qbs[team]||[]).find(x=>x.id===id);return q?q.val:D.qb_prior}
 function calc(g){
@@ -511,7 +561,9 @@ $('#board').addEventListener('click',e=>{const t=e.target.closest('button');if(!
  else if(t.dataset.log){const g=D.games.find(x=>x.game_id===t.dataset.log),r=calc(g);const home=r.side==='home';
   saveBet({id:'b'+Date.now(),ts:Date.now(),wk:`${D.season} W${D.week}`,game:g.game_id,team:home?g.home:g.away,opp:home?g.away:g.home,line:home?-r.L:r.L,odds:home?r.oh:r.oa,book:r.book||'',stake:Math.max(1,Math.round(r.stake||S.bank*.01)),p:r.pw,close:'',res:''});toast('Bet logged below')}});
 $('#okey').addEventListener('input',e=>{const k=e.target.value.trim();$('#ofeed').href=k?feedURL(k):'#';LS.set('nflats_okey',k)});
-$('#oRefresh').addEventListener('click',refreshLines);$('#lockNow').addEventListener('click',()=>{try{localStorage.removeItem('nflats_lockkey')}catch(e){}location.reload()});$('#wRefresh').addEventListener('click',refreshWeather);
+$('#oRefresh').addEventListener('click',refreshLines);
+$('#hStart').addEventListener('click',hRun);$('#hDl').addEventListener('click',hDownload);$('#hFrom').addEventListener('change',hEstimate);$('#hTo').addEventListener('change',hEstimate);
+$('#hClear').addEventListener('click',async()=>{if(HRUN)return;await HDB.open();await HDB.clear();hEstimate();toast('Saved line history cleared')});$('#lockNow').addEventListener('click',()=>{try{localStorage.removeItem('nflats_lockkey')}catch(e){}location.reload()});$('#wRefresh').addEventListener('click',refreshWeather);
 $('#bkExport').addEventListener('click',exportBackup);$('#bkImport').addEventListener('change',e=>{if(e.target.files[0])importBackup(e.target.files[0])});
 $('#ofeed').addEventListener('click',e=>{if(!$('#okey').value.trim()){e.preventDefault();toast('Enter your API key first')}});
 $('#opaste').addEventListener('paste',()=>setTimeout(()=>{const v=$('#opaste').value.trim();if(v)loadFeed(v,'paste')},0));
@@ -538,7 +590,7 @@ getWeek().then(d=>{D=d;
  const k0=LS.get('nflats_okey','');if(k0){$('#okey').value=k0;$('#ofeed').href=feedURL(k0)}
  SNAPS=(LS.get('nflats_odds_'+D.season+'_'+D.week,{snaps:[]}).snaps)||[];
  const last=LS.get('nflats_live_'+D.season+'_'+D.week,null);if(last&&last.txt){try{LIVE=parseFeed(last.txt).out;$('#ostat').textContent='Showing your last odds pull ('+ago(Object.values(LIVE)[0].ts)+'). Pull again for fresh prices.'}catch(e){}}
- render();renderRatings();renderBacktest();BETS=LS.get('nflats_bets',[]);renderLog();
+ render();renderRatings();renderBacktest();BETS=LS.get('nflats_bets',[]);renderLog();hEstimate();
  if(!wx||Date.now()-wx.ts>3*3600e3)setTimeout(()=>refreshWeather(true).catch(()=>{}),400);
  $('#store').textContent='Saved in this browser. Use Download backup now and then, or if you switch browsers.';
  const cr=LS.get('nflats_credits',null);if(cr&&!Object.keys(LIVE).length)$('#ostat').textContent=`Last refresh ${ago(cr.ts)} · ${cr.rem} credits left.`;
