@@ -73,7 +73,7 @@ def main(path):
     tests = sorted(d.season.unique())
     tests = [s for s in tests if s >= 2016]
     st = V.oos_adjust(d, ["st_diff"], tests)
-    base = d.assign(st_adj=st)[["game_id", "season", "week", "result", "spread_line", "total_line", "st_adj", "wind_mph"]]
+    base = d.assign(st_adj=st, stats_line=d.spread_line + d.stats_gap)[["game_id", "season", "week", "result", "spread_line", "total_line", "st_adj", "wind_mph", "stats_line"]]
     X = base.merge(G, on="game_id", how="inner")
     hb, ab = best_price(raw, "open")
     X = X.merge(hb, left_on="game_id", right_index=True, how="left").merge(ab, left_on="game_id", right_index=True, how="left")
@@ -112,6 +112,23 @@ def main(path):
     odds = np.where(side_home, X.h_oh, X.a_oa)
     ats = np.where(side_home, X.result - line, line - X.result)
     R["ST_lean_best_book_at_open"] = stats(pd.Series(ats[m]) > 0, pd.Series(ats[m]) == 0, pd.Series(odds[m]).fillna(-110))
+
+    # 3b. full stats model vs the opener (it loses to the close; does it beat the open?)
+    for th in [1.5, 3.0]:
+        for stage in ["open", "close"]:
+            gap = X.stats_line - X[f"L_{stage}"]
+            m = (gap.abs() >= th) & X.stats_line.notna()
+            a = (X.result - X[f"L_{stage}"])[m] * np.sign(gap[m])
+            R[f"stats_model_gap{th}_at_{stage}"] = stats(a > 0, a == 0)
+        gap = X.stats_line - X.L_open
+        m = (gap.abs() >= th) & X.stats_line.notna()
+        c = np.sign(gap[m]) * (X.L_close - X.L_open)[m]
+        R[f"stats_model_gap{th}_clv"] = {"avg_pts": round(float(c.mean()), 3), "toward_%": round(100 * float((c > 0).mean()), 1),
+                                         "against_%": round(100 * float((c < 0).mean()), 1), "n": int(m.sum())}
+    # per-season for the special-teams lean at open
+    R["ST_lean_at_open_by_season"] = {int(S): stats(((X.result - X.L_open) * lean)[strong & (X.season == S)] > 0,
+                                                     ((X.result - X.L_open) * lean)[strong & (X.season == S)] == 0)["hit"]
+                                      for S in sorted(X.season.unique())}
 
     # EV tiers at open (projection = opening consensus + special-teams adjustment), key-number odds
     rows = []
@@ -162,14 +179,38 @@ def main(path):
     cl = cl[cl.book != "pinnacle"].merge(pin, on="game_id")
     cl = cl[cl.L.notna() & cl.pinL.notna()]
     gap = cl.L - cl.pinL  # + = book more home-favoured than Pinnacle -> away bettor gets more points
+    cl["gap"] = cl.L - cl.pinL
+    cl["side"] = np.where(cl.gap > 0, -1, 1)   # take the side the book is giving extra points to
+    cl["odds"] = np.where(cl.side > 0, cl.oh, cl.oa)
+    cl["odds"] = cl.odds.fillna(-110)
+    cl["absgap"] = cl.gap.abs()
     out = []
-    for th in [0.5, 1.0]:
-        m = gap.abs() >= th
-        side = np.where(gap[m] > 0, -1, 1)  # take the side the book is giving extra
-        res = (cl.result[m] - cl.L[m]) * side
-        odds = np.where(side > 0, cl.oh[m], cl.oa[m])
-        out.append((th, stats(res > 0, res == 0, pd.Series(odds).fillna(-110))))
+    for th in [0.5, 1.0, 1.5]:
+        c = cl[cl.absgap >= th].sort_values(["game_id", "absgap", "odds"], ascending=[True, False, False]).groupby("game_id").first()
+        res = (c.result - c.L) * c.side
+        out.append((th, stats(res > 0, res == 0, c.odds)))
+    sub = cl[cl.absgap >= 0.5]
+    R["off_pinnacle_by_book"] = {bk: stats(((g.result - g.L) * g.side) > 0, ((g.result - g.L) * g.side) == 0, g.odds)
+                                 for bk, g in sub.groupby("book")}
     R["rec_books_off_pinnacle"] = {f"gap>={th}": s for th, s in out}
+    # same at the opener
+    op = raw[raw.kind == "open"].merge(X[["game_id", "result"]], on="game_id")
+    pin = op[op.book == "pinnacle"][["game_id", "L"]].rename(columns={"L": "pinL"})
+    op = op[op.book != "pinnacle"].merge(pin, on="game_id")
+    op = op[op.L.notna() & op.pinL.notna()]
+    op["gap"] = op.L - op.pinL; op["side"] = np.where(op.gap > 0, -1, 1)
+    op["odds"] = np.where(op.side > 0, op.oh, op.oa); op["odds"] = op.odds.fillna(-110); op["absgap"] = op.gap.abs()
+    o2 = {}
+    for th in [0.5, 1.0, 1.5]:
+        c = op[op.absgap >= th].sort_values(["game_id", "absgap", "odds"], ascending=[True, False, False]).groupby("game_id").first()
+        res = (c.result - c.L) * c.side
+        o2[f"gap>={th}"] = stats(res > 0, res == 0, c.odds)
+    R["rec_books_off_pinnacle_at_open"] = o2
+    # Pinnacle's own move vs US consensus move (does Pinnacle lead?)
+    pm = X.pin_close - X.pin_open
+    m = pm.abs() >= 0.5
+    a = (X.result - X.L_open)[m] * np.sign(pm[m])
+    R["bet_US_open_in_direction_of_pinnacle_move"] = stats(a > 0, a == 0)
     return R
 
 

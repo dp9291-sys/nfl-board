@@ -149,6 +149,23 @@ textarea{font:14px ui-monospace,monospace;width:100%;border:1px solid var(--line
 <h3 style="margin-top:22px">Every signal tested, one at a time (walk-forward 2015–2026)</h3>
 <div class="scroll"><table class="t stack" id="sigs"></table></div>
 <p class="note">t is the out-of-sample t-statistic, and "Top third" is the win rate on the third of games where the signal was strongest. FDR means it survived the Benjamini–Hochberg false-discovery correction (q = 0.10) across all 30 tests. Only special teams passes.</p>
+<h3 style="margin-top:22px">Line history: real prices at Pinnacle + 9 US books, 2021 to week 11 of 2026</h3>
+<p class="small" style="max-width:820px"><b>Tier A held up when priced at the best of 10 books, at the opener and at kickoff alike.</b> Line moves, total moves and US books off Pinnacle at kickoff showed no edge after the vig. There's no need to bet early: special teams alone does better near kickoff, and betting late lets you see inactives. 1,564 games, each with the Tuesday opener, Friday midweek and 10-minutes-before-kickoff lines.</p>
+<div class="scroll"><table class="t stack"><thead><tr><th>Test</th><th class="r">Bets</th><th class="r">Win %</th><th class="r">Return</th><th>Verdict</th></tr></thead><tbody>
+<tr><td>Tier A, best book at kickoff</td><td class="r">246</td><td class="r">58.9%</td><td class="r">+13.6%</td><td>Edge holds</td></tr>
+<tr><td>Tier A, best book at opener</td><td class="r">225</td><td class="r">58.7%</td><td class="r">+13.2%</td><td>Edge holds</td></tr>
+<tr><td>Tier A, best book Friday</td><td class="r">195</td><td class="r">57.9%</td><td class="r">+11.6%</td><td>Edge holds</td></tr>
+<tr><td>Tier B, best book at kickoff</td><td class="r">177</td><td class="r">49.7%</td><td class="r">−4.4%</td><td>Lean only</td></tr>
+<tr><td>Special teams lean, at kickoff</td><td class="r">586</td><td class="r">54.4%</td><td class="r">+3.9%</td><td>Thin, better late</td></tr>
+<tr><td>Special teams lean, at opener</td><td class="r">586</td><td class="r">52.6%</td><td class="r">+0.3%</td><td>Break-even</td></tr>
+<tr><td>Follow the line move, open → kickoff</td><td class="r">1,110</td><td class="r">49.9%</td><td class="r">−4.7%</td><td>No edge</td></tr>
+<tr><td>Follow the early move, open → Friday</td><td class="r">786</td><td class="r">51.9%</td><td class="r">−0.9%</td><td>No edge</td></tr>
+<tr><td>Favorite when the total moves 1+ pt in the same direction</td><td class="r">747</td><td class="r">48.7%</td><td class="r">−7.0%</td><td>No edge</td></tr>
+<tr><td>US book off Pinnacle at kickoff by 0.5+ pt</td><td class="r">1,188</td><td class="r">52.9%</td><td class="r">+0.2%</td><td>No edge</td></tr>
+<tr><td>US book off Pinnacle at opener by 1.5+ pts</td><td class="r">107</td><td class="r">60.7%</td><td class="r">+13.6%</td><td>Watch, small sample</td></tr>
+<tr><td>Full stats model 3+ pts off the opener</td><td class="r">387</td><td class="r">50.6%</td><td class="r">−3.3%</td><td>No edge</td></tr>
+</tbody></table></div>
+<p class="note">Returns are at the actual price taken (−110 for the special teams, line-move, total-move and stats-model rows). Tier A's season-by-season win rate at kickoff ran from 42% (2023) to 68% (2025), so expect losing years. Early line moves reverse more often than they continue (39% keep going). When the full stats model differs from the opener by 3+ points, the line moves its way 58% of the time and against it 18%, but it still doesn't win against the spread, so use it only for timing: if your pick agrees with it, bet sooner. About 30 tests were run on this data, so single results near p = 0.03 can occur by chance; Tier A counts more because it was fixed before this data existed.</p>
 <details style="margin-top:18px"><summary class="small"><b>More: adding factors to the stats line, special teams by era, teasers</b></summary>
 <p class="small" id="btCallOld" style="max-width:820px"></p>
 <div class="grid2">
