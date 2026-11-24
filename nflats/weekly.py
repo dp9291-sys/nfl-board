@@ -48,6 +48,11 @@ def refresh_data(season, log=print):
         _dl(f"{REL}/injuries/injuries_{y}.parquet", os.path.join(data.DATA_DIR, f"inj_{y}.parquet"), log, force=(y == season))
         _dl(f"{REL}/snap_counts/snap_counts_{y}.parquet", os.path.join(data.DATA_DIR, f"snap_{y}.parquet"), log, force=(y == season))
     _dl(f"{REL}/players/players.parquet", os.path.join(data.DATA_DIR, "players.parquet"), log, force=True)
+    try:
+        from . import inactives
+        inactives.download_roster(season)
+    except Exception as e:
+        log(f"  weekly roster unavailable ({e})")
     for y in range(2022, season + 1):
         try:
             _dl(f"{REL}/ftn_charting/ftn_charting_{y}.parquet", os.path.join(data.DATA_DIR, f"ftn_{y}.parquet"), log, force=(y == season))
@@ -65,6 +70,11 @@ def run(season=None, week=None, log=print, download=True):
     if season is None or week is None:
         season, week = detect_week()
     log(f"Building week {week} of {season}")
+    try:
+        from . import inactives
+        inactives.merge_into_injuries(season, week, log)
+    except Exception as e:
+        log(f"  inactives not merged ({e})")
     from . import build, predict, build2, predict2, build3, validate, predict3, weather
     log("Step 2/9  Team ratings and QB values (walk-forward)")
     build.build(season, verbose=False).to_parquet(f"{data.DATA_DIR}/features.parquet")
