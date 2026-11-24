@@ -106,7 +106,7 @@ textarea{font:14px ui-monospace,monospace;width:100%;border:1px solid var(--line
 <header class="hero band"><div class="wrap">
 <button id="lockNow" style="float:right;background:transparent;color:#fff;border-color:#ffffff88;display:none">Lock</button>
 <h1 id="title">Week board loading…</h1>
-<p id="sub">30 candidate signals were tested week by week over 12 seasons, with a false-discovery correction. Picks are tiered by how they actually performed at posted prices. Cover odds use real final margins, adjusted for the total and AccuWeather forecasts. Your news is added on top.</p>
+<p id="sub">Special teams is the one signal that has beaten closing spreads in walk-forward tests (2015–2026, with a false-discovery correction). Each pick is that lean plus any news you add, priced at the best line among your sportsbooks with a smooth key-number model. Expect a thin edge, about 2–5% per bet, with losing seasons.</p>
 <div class="kpis" id="kpis"></div>
 </div></header>
 
@@ -131,10 +131,10 @@ textarea{font:14px ui-monospace,monospace;width:100%;border:1px solid var(--line
 <div class="ctrl"><div class="wrap">
 <div><label for="k">Trust in full stats line: <b id="kv"></b></label><input type="range" id="k" min="0" max="1" step="0.01"></div>
 <div><label for="stOn">Special-teams adjustment</label><select id="stOn"><option value="1">On (backtested)</option><option value="0">Off</option></select></div>
-<div class="small mut" style="max-width:260px">Tiers from the backtest: <b>A</b> = EV 5%+, <b>B</b> = EV 3–5%. Everything below 3% lost money in testing, so it's a pass.<input type="hidden" id="minev" value="5"></div>
+<div class="small mut" style="max-width:300px"><b>Bet</b> = a special-teams lean (plus your news) of 0.5+ pts, at your best book and no worse than the market. Stakes assume about a 4% edge × your Kelly fraction, max 2% of bankroll.<input type="hidden" id="minev" value="5"></div>
 <div><label for="bank">Bankroll ($)</label><input type="number" id="bank" step="50" value="1000"></div>
 <div><label for="kf">Kelly fraction</label><select id="kf"><option value="0.125">1/8</option><option value="0.25" selected>1/4</option><option value="0.5">1/2</option></select></div>
-<div><label for="sort">Sort</label><select id="sort"><option value="pick">Bets first</option><option value="time">Kickoff</option><option value="ev">Best EV</option><option value="gap">Stats vs market gap</option></select></div>
+<div><label for="sort">Sort</label><select id="sort"><option value="pick">Bets first</option><option value="time">Kickoff</option><option value="ev">Biggest lean</option><option value="gap">Stats vs market gap</option></select></div>
 <button id="reset">Reset adjustments</button>
 </div></div>
 
@@ -158,16 +158,38 @@ textarea{font:14px ui-monospace,monospace;width:100%;border:1px solid var(--line
 </div></section>
 
 <section class="band" style="background:var(--turf2)"><div class="wrap">
-<h2 id="btTitle">Backtest: what each data group added against closing lines</h2>
+<h2 id="btTitle">Backtest: how picks work now</h2>
+<div class="callout"><b>Bet the special-teams lean (0.5+ pts) at the best of your books, close to kickoff.</b> It's the simplest rule tested and the most trustworthy, because it has the fewest settings that could have been tuned to the past. The old confidence tiers were retired after a quality check showed their record depended on one fine setting of the cover-odds tables.</div>
+<div class="scroll"><table class="t stack"><thead><tr><th>Test (walk-forward)</th><th class="r">Bets</th><th class="r">Win %</th><th class="r">Return</th><th>Verdict</th></tr></thead><tbody>
+<tr><td><b>Special-teams lean 0.5+, best Arizona book near kickoff, 2021–26</b></td><td class="r">604</td><td class="r">55.2%</td><td class="r">+5.1%</td><td>The rule</td></tr>
+<tr><td>Same, best Arizona book at the Tuesday opener</td><td class="r">601</td><td class="r">53.5%</td><td class="r">+2.0%</td><td>Bet late, not early</td></tr>
+<tr><td>Same, single posted closing line, 2018–26</td><td class="r">941</td><td class="r">53.2%</td><td class="r">+2.7%</td><td>Shopping adds ~2 pts</td></tr>
+<tr><td>Bigger leans only (1.0+ pts), Arizona books</td><td class="r">148</td><td class="r">51.4%</td><td class="r">−2.1%</td><td>No better</td></tr>
+<tr><td>Leans that pass the cover-model price check</td><td class="r">427</td><td class="r">53.1%</td><td class="r">+1.9%</td><td>Filter didn't help</td></tr>
+<tr><td>Old Tier A at its exact settings, 2018–26</td><td class="r">308</td><td class="r">56.4%</td><td class="r">+11.6%</td><td>Fragile</td></tr>
+<tr><td>Old Tier A at nearby settings / smoothed tables</td><td class="r">130–492</td><td class="r">47–52%</td><td class="r">−4% to +5%</td><td>Retired</td></tr>
+</tbody></table></div>
+<p class="note">Season by season at Arizona books near kickoff: 2021 60.5%, 2022 51.2%, 2023 50.0%, 2024 61.1%, 2025 59.3%, 2026 so far 47.4%. Expect losing years. Stakes assume about a 4% edge.</p>
+<h3 style="margin-top:22px">Special-teams upgrades tested (none made the cut)</h3>
+<div class="scroll"><table class="t stack"><thead><tr><th>Candidate</th><th class="r">Alone (t)</th><th class="r">On top of current (t)</th><th>Verdict</th></tr></thead><tbody>
+<tr><td>Current: all special-teams EPA, one weight</td><td class="r">3.10</td><td class="r">—</td><td>Kept</td></tr>
+<tr><td>Separate weights for field goals, punts, kickoffs</td><td class="r">2.73</td><td class="r">−0.15</td><td>Weaker; extra weights add noise</td></tr>
+<tr><td>Own kickoff weight after the 2024 rule change</td><td class="r">2.50</td><td class="r">−0.57</td><td>No gain</td></tr>
+<tr><td>Game-day kicker's skill in that game's wind, cold, altitude</td><td class="r">1.29</td><td class="r">0.68</td><td>Closest; not significant</td></tr>
+<tr><td>Game-day punter's skill</td><td class="r">0.34</td><td class="r">−1.12</td><td>No signal</td></tr>
+<tr><td>Primary kick/punt returner listed Out or Doubtful</td><td class="r">−0.18</td><td class="r">−0.17</td><td>No signal</td></tr>
+</tbody></table></div>
+<p class="note">Walk-forward 2016–2026 against closing spreads; weights learned only from earlier seasons; Benjamini–Hochberg false-discovery check at q = 0.10. Only the phase split passed on its own, and it is weaker than the current combined signal.</p>
+<details style="margin-top:18px"><summary class="small"><b>Earlier analysis: retired tiers, all 30 signals, line history</b></summary>
 <div class="callout" id="btCall"></div>
-<h3>Confidence tiers: real betting results at posted prices, 2018 to now</h3>
+<h3>Retired confidence tiers (for reference)</h3>
 <div class="scroll"><table class="t stack" id="tiers"></table></div>
 <p class="note" id="tierNote"></p>
 <h3 style="margin-top:22px">Every signal tested, one at a time (walk-forward 2015–2026)</h3>
 <div class="scroll"><table class="t stack" id="sigs"></table></div>
 <p class="note">t is the out-of-sample t-statistic, and "Top third" is the win rate on the third of games where the signal was strongest. FDR means it survived the Benjamini–Hochberg false-discovery correction (q = 0.10) across all 30 tests. Only special teams passes.</p>
 <h3 style="margin-top:22px">Line history: real prices at Pinnacle + 9 US books, 2021 to week 11 of 2026</h3>
-<p class="small" style="max-width:820px"><b>Tier A held up when priced at the best of 10 books, at the opener and at kickoff alike.</b> Line moves, total moves and US books off Pinnacle at kickoff showed no edge after the vig. There's no need to bet early: special teams alone does better near kickoff, and betting late lets you see inactives. 1,564 games, each with the Tuesday opener, Friday midweek and 10-minutes-before-kickoff lines.</p>
+<p class="small" style="max-width:820px"><b>The retired Tier A held up when priced at the best of 10 books, at the opener and at kickoff alike.</b> Line moves, total moves and US books off Pinnacle at kickoff showed no edge after the vig. There's no need to bet early: special teams alone does better near kickoff, and betting late lets you see inactives. 1,564 games, each with the Tuesday opener, Friday midweek and 10-minutes-before-kickoff lines.</p>
 <div class="scroll"><table class="t stack"><thead><tr><th>Test</th><th class="r">Bets</th><th class="r">Win %</th><th class="r">Return</th><th>Verdict</th></tr></thead><tbody>
 <tr><td>Tier A, best book at kickoff</td><td class="r">246</td><td class="r">58.9%</td><td class="r">+13.6%</td><td>Edge holds</td></tr>
 <tr><td>Tier A, best book at opener</td><td class="r">225</td><td class="r">58.7%</td><td class="r">+13.2%</td><td>Edge holds</td></tr>
@@ -190,6 +212,7 @@ textarea{font:14px ui-monospace,monospace;width:100%;border:1px solid var(--line
 <h3 style="margin-top:22px">6-point teaser legs, 2018 onward</h3><table class="t stack" id="tt"></table></div>
 <div><h3>Adding data groups one at a time to the stats line</h3><div class="scroll"><table class="t" id="bt"></table></div><p class="note">Average miss in points, and ATS hit rate betting every disagreement with the close (all games, and gaps over 2 points), 2018 to week 11 of 2026.</p></div>
 </div>
+</details>
 </details>
 </div></section>
 
@@ -214,11 +237,11 @@ textarea{font:14px ui-monospace,monospace;width:100%;border:1px solid var(--line
 <h2>Using this board</h2>
 <div class="small" style="max-width:820px"><p><b>Odds:</b> press Refresh lines whenever you want current prices (4 credits per refresh). Each refresh is saved on this device, so line movement builds up through the week.</p>
 <p><b>Weather</b> refreshes itself when you open the page (Open-Meteo, free), at most every 3 hours.</p>
-<p><b>The model</b> (ratings, injuries, special teams, tiers, backtest) is rebuilt weekly and published to this same address.</p>
+<p><b>The model</b> (ratings, injuries, special teams, cover odds, backtest) is rebuilt weekly and published to this same address.</p>
 <p><b>Your data</b> (key, line history, bets) stays in this browser on this device. Download backup saves everything except the key.</p></div>
 <h2 style="margin-top:28px">How the projection is built</h2>
 <div class="grid2 small">
-<div><p><b>How picks are tiered.</b> Each game's expected value at your price sets its tier: A at 5%+ and B at 3–5%, matching the backtest table above. Stakes use your Kelly fraction, capped at 3% of bankroll, and only for A and B.</p>
+<div><p><b>How picks are made.</b> A game is a bet when the special-teams adjustment plus any news you enter moves the line 0.5+ points from the market, and your best book's line is no worse than the market. Stakes are your Kelly fraction × an assumed 4% edge ÷ the payout, capped at 2% of bankroll. The cover odds come from a smooth key-number model (exact margins of 3, 7, 10 and so on weighted by how close the game is expected to be) and are used to pick your best line, not to filter bets.</p>
 <p><b>Projection = market + special teams + trust × (stats − market) + your news.</b> The special-teams term is net special-teams EPA per game (kicking, punting, returns, coverage) for each team, weighted <b id="cst"></b> points per point of difference. That weight is re-learned each season. The full stats line has trust <b id="kgap"></b> by default, because walk-forward tests found it adds nothing beyond the close once special teams is in.</p>
 <p><b>Full stats line (34 factors).</b> Weekly ridge regressions rate every offense and defense, adjusted for opponents, on EPA, success rate, early-down EPA, turnover-free EPA, pass EPA, explosive-play rate and sack rate. Recent games count most. On top of that: special teams, interception and fumble rates, pass rate over expected, penalties, QB EPA and CPOE versus each team's baseline, injury reports weighted by snap share and position, home field, rest, time zones and weather.</p></div>
 <div><p><b>Weather.</b> AccuWeather forecasts for each outdoor stadium (day forecast for early kickoffs, night forecast for late ones). Wind of 10+ mph shades the expected total down 1.5 points, because closing totals ran 1.3–2 points high in that wind. Lower totals mean more games land exactly on 3 (20.6% vs 14.6% at a 3-point line), and the cover odds account for that. Cold games with a dome or warm-weather road team are a factor in the stats line.</p>
@@ -254,6 +277,10 @@ const at=(p,L)=>Number.isInteger(L)&&L>=-50&&L<=50?p[L+50]:0;
 function cover(mu,L,grp){PMF=D.pmf[grp||'hi'];const pM=pmfAt(mu),pL=pmfAt(L);const push=at(pM,L),push0=at(pL,L);
  let h=(1-push0)/2+gt(pM,L)-gt(pL,L);h=Math.min(.995,Math.max(.005,h));return{h,push,a:Math.max(.005,1-h-push)}}
 
+function cover2(mu,L,grp,M){const C=D.cover2;if(!C)return cover(mu,L,grp);const a=Math.abs(M??L),band=a<=4.5?'close':a<10?'mid':'wide';const P=C[grp||'hi'][band],[s1,s2,q]=P.shape;
+ const pm=x=>{const v=new Array(101);let t=0;for(let i=0;i<101;i++){const d=i-50-x;v[i]=(q*Math.exp(-.5*(d/s1)**2)/s1+(1-q)*Math.exp(-.5*(d/s2)**2)/s2)*P.w[i];t+=v[i]}for(let i=0;i<101;i++)v[i]/=t;return v};
+ const pM=pm(mu),pL=pm(L),at2=(v,x)=>Number.isInteger(x)&&x>=-50&&x<=50?v[x+50]:0,gt2=(v,x)=>{let t=0;for(let i=0;i<101;i++)if(i-50>x)t+=v[i];return t};
+ const push=at2(pM,L),push0=at2(pL,L),h=(1-push0)/2+gt2(pM,L)-gt2(pL,L);return {h,push,a:1-h-push}}
 function wxText(g){const w=g.weather;if(!w)return g.roof==='dome'?'dome':'roof closed';return `${w.temp}° · ${w.wind} mph${w.precip_pct>=50?' · rain '+w.precip_pct+'%':''}`}
 function injHTML(g){const I=g.injuries||{},h=I.home||[],a=I.away||[];
  if(!h.length&&!a.length)return `<p class="note">Injury report: none posted for this week yet (reports run Wednesday to Friday). Refresh then and the model prices each absence by snap share and position.</p>`;
@@ -436,18 +463,20 @@ function calc(g){
  const inj=-(+a.hInj||0)+(+a.aInj||0),other=+a.other||0;
  const news=qbNews+inj+other;
  const lv=LIVE[g.game_id];const M=lv&&lv.cons!=null?lv.cons:(g.spread_line??stats);
- const k=+S.k;const proj=M+k*(stats-M)+stAdj+news;
- let L,oh,oa,p,evH,evA,book=null;
+ const k=+S.k;const proj=M+k*(stats-M)+stAdj+news,lean=proj-M,side=lean>=0?'home':'away';const R=D.rule||{thr:.5,edge:.04,cap:.02};
+ let L,oh,oa,p,ev,book=null;
  const manual=a.book!=null&&a.book!=='';
- if(!manual&&lv&&lv.books.length){let best=null;
-  const mine=myBooks();for(const bk of lv.books){if(bk.L==null||!mine.has(bk.key))continue;const q=cover(proj,bk.L,g.pmf_group);const eh=q.h*payout(bk.oh)-q.a,ea=q.a*payout(bk.oa)-q.h;const m=Math.max(eh,ea);
-   if(!best||m>best.m)best={m,bk,q,eh,ea}}
-  if(best){L=best.bk.L;oh=best.bk.oh;oa=best.bk.oa;p=best.q;evH=best.eh;evA=best.ea;book=best.bk.title}}
- if(p==null){L=manual?-a.book:M;oh=+a.oh||(lv?-110:g.home_spread_odds)||-110;oa=+a.oa||(lv?-110:g.away_spread_odds)||-110;p=cover(proj,L,g.pmf_group);evH=p.h*payout(oh)-p.a;evA=p.a*payout(oa)-p.h}
- const side=evH>=evA?'home':'away';const ev=Math.max(evH,evA),pw=side==='home'?p.h:p.a,pl=side==='home'?p.a:p.h,b=payout(side==='home'?oh:oa);
- const kel=Math.max(0,(b*pw-pl)/(b*(pw+pl)));const stake=ev>=.03?Math.min(S.bank*.03,S.bank*S.kf*kel):0;
- const tag=ev>=.05?'a':ev>=.03?'b':'pass';
- return{stats,proj,M,L,news,qbNews,inj,other,stAdj,p,ev,side,pw,stake,oh,oa,tag,evH,evA,book,lv}
+ if(!manual&&lv&&lv.books.length){const mine=myBooks();let best=null;
+  for(const bk of lv.books){if(bk.L==null||!mine.has(bk.key))continue;const o=side==='home'?bk.oh:bk.oa;if(o==null)continue;const q=cover2(proj,bk.L,g.pmf_group,M);
+   const e=side==='home'?q.h*payout(o)-q.a:q.a*payout(o)-q.h;if(!best||e>best.e)best={e,bk,q}}
+  if(best){L=best.bk.L;oh=best.bk.oh;oa=best.bk.oa;p=best.q;book=best.bk.title}}
+ if(p==null){L=manual?-a.book:M;oh=+a.oh||(lv?-110:g.home_spread_odds)||-110;oa=+a.oa||(lv?-110:g.away_spread_odds)||-110;p=cover2(proj,L,g.pmf_group,M)}
+ const evH=p.h*payout(oh)-p.a,evA=p.a*payout(oa)-p.h;ev=side==='home'?evH:evA;
+ const pw=side==='home'?p.h:p.a,o=side==='home'?oh:oa;
+ const worse=M!=null&&(side==='home'?L-M:M-L)>=.5;
+ const tag=Math.abs(lean)>=R.thr&&!worse?'a':'pass';
+ const stake=tag==='a'?S.bank*Math.min(R.cap,S.kf*R.edge/payout(o)):0;
+ return{stats,proj,M,L,news,qbNews,inj,other,stAdj,p,ev,side,pw,stake,oh,oa,tag,evH,evA,book,lv,lean,worse:worse&&Math.abs(lean)>=R.thr}
 }
 
 const NICK=Object.fromEntries(Object.entries(TEAMN).map(([n,a])=>[a,n.split(' ').pop()]));
@@ -458,44 +487,38 @@ function koText(g){try{const [y,m,d]=g.gameday.split('-').map(Number),[hh,mm]=g.
  return new Date(Date.UTC(y,m-1,d,hh+(dst?4:5),mm)).toLocaleString([],{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}catch(e){return g.weekday.slice(0,3)+' '+g.gametime+' ET'}}
 const pickLbl=(g,side,L)=>side==='home'?`${N(g.home)} ${fmtS(-L)}`:`${N(g.away)} ${fmtS(L)}`;
 const sideTxt=(g,x)=>Math.abs(x)<.25?'a pick’em':`${N(x>0?g.home:g.away)} by ${Math.abs(x).toFixed(1)}`;
-function betAt(g,r){let best=null;
- for(const side of ['home','away'])for(let k=0;k<=6;k++){const L=side==='home'?Math.ceil(r.L*2-1e-9)/2-.5*k:Math.floor(r.L*2+1e-9)/2+.5*k;
-  if(side==='home'?L>=r.L:L<=r.L)continue;const q=cover(r.proj,L,g.pmf_group),dist=Math.abs(L-r.L);
-  const ev=side==='home'?q.h/1.1-q.a:q.a/1.1-q.h;if(ev>=.03){if(!best||dist<best.k)best={side,k:dist,L};break}}
- return best}
-function whyHTML(g,r){const pick=r.side==='home'?g.home:g.away,sg=r.side==='home'?1:-1,pl=r.side==='home'?-r.L:r.L;
+function whyHTML(g,r){const sg=r.side==='home'?1:-1,pl=r.side==='home'?-r.L:r.L,fav=x=>N(x>0?g.home:g.away),thr=(D.rule||{thr:.5}).thr;
  const out=[`The model has ${esc(sideTxt(g,r.proj))}; the market has ${esc(sideTxt(g,r.M))}.`];
- const drv=[];const fav=x=>N(x>0?g.home:g.away);
- if(Math.abs(r.stAdj)>=.3)drv.push({v:r.stAdj,t:`special teams favor the ${fav(r.stAdj)}, worth ${Math.abs(r.stAdj).toFixed(1)} pts (the one factor that has beaten closing lines)`});
- if(Math.abs(r.news)>=.3)drv.push({v:r.news,t:`your news adjustments move it ${Math.abs(r.news).toFixed(1)} pts toward the ${fav(r.news)}`});
- const sk=S.k*(r.stats-r.M);if(Math.abs(sk)>=.3)drv.push({v:sk,t:`the full stats line adds ${Math.abs(sk).toFixed(1)} pts toward the ${fav(sk)}`});
- drv.sort((a,b)=>Math.abs(b.v)-Math.abs(a.v));
- if(r.tag==='pass'){const gap=Math.abs(r.proj-r.L);
-  out.push(gap<.75?'That’s too close to the line to beat the vig on either side.':`It leans ${esc(N(pick))}, but not by enough to beat the vig at this price.`)}
- else{const m=drv.find(d=>Math.sign(d.v)===sg);if(m)out.push(`<b>Main reason:</b> ${esc(m.t)}.`);
-  else if(r.book&&Math.abs(r.L-r.M)>=.25)out.push(`<b>Main reason:</b> the price. ${esc(r.book)} has ${esc(pickLbl(g,r.side,r.L))} while most books have ${esc(pickLbl(g,r.side,r.M))}.`);
-  else out.push('<b>Main reason:</b> the cover odds at this exact line and price, more than any single factor.');
+ const st=Math.abs(r.stAdj)>=.05?`special teams favor the ${fav(r.stAdj)} by ${leanTxt(r.stAdj)} pts`:'special teams are even';
+ if(r.tag==='a'){
+  const nw=Math.abs(r.news)>=.3?`your news adjustments add ${Math.abs(r.news).toFixed(1)} pts toward the ${fav(r.news)}`:'';
+  if(Math.abs(r.news)>Math.abs(r.stAdj))out.push(`<b>Main reason:</b> ${esc(nw)}${Math.abs(r.stAdj)>=.05?`; ${esc(st)}`:''}.`);
+  else out.push(`<b>Main reason:</b> ${esc(st)}, the one factor that has beaten closing lines${nw?`; ${esc(nw)}`:''}.`);
   const a=Math.abs(pl);
-  if((a===3||a===7)&&r.p.push>=.05)out.push(`Getting the full ${a} matters: about ${Math.round(r.p.push*100)}% of games at this line land exactly on ${a}, which is a push instead of a loss.`);
+  if((a===3||a===7)&&r.p.push>=.05)out.push(`Getting the full ${a} matters: about ${Math.round(r.p.push*100)}% of games at this line land exactly on ${a}, a push instead of a loss.`);
   else if(pl===3.5||pl===7.5)out.push(`At ${fmtS(pl)}, a ${Math.floor(a)}-point loss still covers.`);
   else if(pl===-2.5||pl===-6.5)out.push(`At ${fmtS(pl)}, any ${Math.ceil(a)}-point win covers.`);
+  out.push('Bets like this won 55% at the best Arizona book near kickoff in 2021–2026; expect a thin edge and losing stretches.');
   if(Math.abs(r.stats-r.M)>=3)out.push(Math.sign(r.stats-r.M)===sg?'The full stats model leans this way too, and lines tend to move toward it, so there’s no reason to wait.':'The full stats model leans the other way, and lines tend to move toward it, so waiting may get a better number.')}
+ else if(r.worse)out.push(`It leans ${esc(N(r.side==='home'?g.home:g.away))} (${esc(st)}), but your books only offer ${esc(pickLbl(g,r.side,r.L))} against the market’s ${esc(pickLbl(g,r.side,r.M))}. Every backtested bet was at the market number or better.`);
+ else out.push(`No bet: ${esc(st)}${Math.abs(r.news)>=.05?` and your news adds ${Math.abs(r.news).toFixed(1)}`:''}, under the ${thr}-point threshold.`);
  return out.join(' ')}
+const leanTxt=x=>{const v=Math.abs(x),thr=(D.rule||{thr:.5}).thr;let t=v.toFixed(1);if(v<thr&&+t>=thr)t=(Math.floor(v*100)/100).toFixed(2);return t};
 const tcls=r=>r.tag==='a'?'ta':r.tag==='b'?'tb':'tp';
 function rowHTML(g,r){
  const pickT=r.side==='home'?g.home:g.away,pl=r.side==='home'?-r.L:r.L,o=r.side==='home'?r.oh:r.oa;
  const meta=[g.div?'Division':'',wxText(g),g.total_line?'O/U '+g.total_line:''].filter(Boolean).join(' · ');
  let verdict,sub;const noLine=!r.lv&&(adj(g).book==null||adj(g).book==='')&&g.spread_line==null;
  if(noLine){verdict='No line yet';sub='Press Refresh lines once books post this game'}
- else if(r.tag==='pass'){const t=betAt(g,r);verdict='Pass';sub=t?`Becomes a bet at ${pickLbl(g,t.side,t.L)} (−110) or better`:'No bet within 3 points of the current line'}
- else{verdict=`${r.tag==='a'?'Bet':'Lean'} ${N(pickT)} ${fmtS(pl)}`;sub=`${odds(o)}${r.book?' at '+r.book:(r.lv?' at the consensus (none of your books lists this game)':'')}${r.stake>0?' · stake $'+r.stake.toFixed(0):''}${r.tag==='b'?' · Tier B has been about break-even in testing, so bet small or skip':''}`}
+ else if(r.tag==='pass'){verdict=r.worse?'Pass at your books':'Pass';sub=r.worse?`Market is ${pickLbl(g,r.side,r.M)}; your best is ${pickLbl(g,r.side,r.L)}`:`Lean ${leanTxt(r.lean)} pts; a bet needs ${(D.rule||{thr:.5}).thr}`}
+ else{verdict=`Bet ${N(pickT)} ${fmtS(pl)}`;sub=`${odds(o)}${r.book?' at '+r.book:(r.lv?' at the consensus (none of your books lists this game)':'')}${r.stake>0?' · stake $'+r.stake.toFixed(0):''}`}
  const evs=(r.ev*100).toFixed(1).replace('-','−');
  return `<summary><span class="c-top"><span><span class="c-when">${esc(koText(g))}</span><span class="c-mt">${esc(N(g.away))} @ ${esc(N(g.home))}</span><span class="c-meta">${esc(meta)}</span></span>
- <span class="tag ${r.tag}">${r.tag==='a'?'TIER A':r.tag==='b'?'TIER B':'PASS'}</span></span>
+ <span class="tag ${r.tag}">${r.tag==='a'?'BET':'PASS'}</span></span>
  <span class="verdict ${r.tag}">${esc(verdict)}</span><span class="vsub">${esc(sub)}</span>
  <span class="why">${noLine?`No market line is posted for this game yet, so there's nothing to price. The stats line has ${esc(sideTxt(g,r.stats))}.`:whyHTML(g,r)}</span>
  <span class="nums"><span>Model<b>${esc(lineLabel(g,Math.round(r.proj*10)/10))}</b></span><span>Market${r.lv?' (live)':''}<b>${esc(lineLabel(g,r.M))}</b></span>
- <span>${esc(N(pickT))} cover<b>${Math.round(r.pw*100)}%</b>${r.p.push>=.01?`push ${Math.round(r.p.push*100)}%`:''}</span><span>Expected return<b class="${r.ev>0?'pos':'neg'}">${r.ev>0?'+':''}${evs}%</b></span></span>
+ <span>${esc(N(pickT))} cover<b>${Math.round(r.pw*100)}%</b>${r.p.push>=.01?`push ${Math.round(r.p.push*100)}%`:''}</span><span>Lean<b class="${Math.abs(r.lean)>=(D.rule||{thr:.5}).thr?'pos':''}">${Math.abs(r.lean)<.05?'none':esc(N(r.lean>0?g.home:g.away))+' +'+leanTxt(r.lean)}</b></span></span>
  <span class="more"><span class="o">Deep dive ▾</span><span class="c">Hide deep dive ▴</span></span></summary>`}
 
 const DDO=new Set(),DDC=new Set();
@@ -510,11 +533,13 @@ function panelHTML(g,r){
  <tr><td>Special teams: ${esc(g.home)} ${f(g.h_st)} vs ${esc(g.away)} ${f(g.a_st)} pts/game × ${D.c_st}</td><td>${f(r.stAdj)}</td></tr>
  <tr><td>Full stats line × trust ${(+S.k).toFixed(2)}</td><td>${f(S.k*(r.stats-r.M))}</td></tr>
  <tr><td>Your news (QB ${f(r.qbNews)}, injuries ${f(r.inj)}, other ${f(r.other)})</td><td>${f(r.news)}</td></tr>
- <tr class="tot"><td>Projection: ${esc(sideTxt(g,r.proj))}</td><td>${f(r.proj)}</td></tr></table>
+ <tr class="tot"><td>Projection: ${esc(sideTxt(g,r.proj))}</td><td>${f(r.proj)}</td></tr>
+ <tr><td>Lean vs market (a bet needs ${(D.rule||{thr:.5}).thr}+ pts)</td><td>${r.lean>=0?'+':'−'}${leanTxt(r.lean)}</td></tr></table>
  <h3>Cover odds at ${esc(lineLabel(g,r.L))}${r.book?' ('+esc(r.book)+')':''}</h3>
  <table class="bd"><tr><td>${esc(N(g.home))} cover / push / ${esc(N(g.away))} cover</td><td>${pct(r.p.h)} / ${pct(r.p.push)} / ${pct(r.p.a)}</td></tr>
- <tr><td>Expected return: ${esc(N(g.home))} ${esc(odds(r.oh))} / ${esc(N(g.away))} ${esc(odds(r.oa))}</td><td>${(r.evH*100).toFixed(1)}% / ${(r.evA*100).toFixed(1)}%</td></tr></table>
- <p class="note">Cover odds come from real final margins around this spread (${g.pmf_group==='lo'?'low-total games, where more land on 3':'normal-total games'}). Tier A needs a 5%+ expected return, Tier B 3–5%; below 3% lost money in testing.</p>
+ <tr><td>Model expected return: ${esc(N(g.home))} ${esc(odds(r.oh))} / ${esc(N(g.away))} ${esc(odds(r.oa))}</td><td>${(r.evH*100).toFixed(1)}% / ${(r.evA*100).toFixed(1)}%</td></tr>
+ ${r.stake>0?`<tr><td>Stake: ${S.kf} Kelly × ${(D.rule||{edge:.04}).edge*100}% assumed edge ÷ payout, max ${(D.rule||{cap:.02}).cap*100}% of bankroll</td><td>$${r.stake.toFixed(0)}</td></tr>`:''}</table>
+ <p class="note">Cover odds come from a smooth key-number model fit to every game since 2002 (${g.pmf_group==='lo'?'low-total games, where more land on 3':'normal-total games'}). It picks the best line among your books and flags key numbers. It is not the bet filter: in testing, filtering on it didn't help, so the bet rule is the lean alone, and the stake assumes the backtested edge of about 4%, not the model's figure.</p>
  ${r.tag!=='pass'?`<div class="row"><button class="pri" data-log="${esc(g.game_id)}">Log ${esc(pickLbl(g,r.side,r.L))} bet</button></div>`:''}`;
  const books=r.lv?booksHTML(g,r):`<p class="note">Press <b>Refresh lines</b> at the top to compare every book. The pick is always priced at the best available line.</p>`;
  const stats=`<h3 style="margin-top:0">Full stats line: ${esc(lineLabel(g,Math.round(r.stats*10)/10))}</h3>
@@ -547,10 +572,10 @@ let open=new Set();
 function render(){
  const rows=D.games.map(g=>({g,r:calc(g)}));
  const srt=$('#sort').value;
- if(srt==='pick'){const rk={a:0,b:1,pass:2};rows.sort((x,y)=>rk[x.r.tag]-rk[y.r.tag]||y.r.ev-x.r.ev)}else if(srt==='ev')rows.sort((x,y)=>y.r.ev-x.r.ev);else if(srt==='gap')rows.sort((x,y)=>Math.abs(y.r.stats-y.r.M)-Math.abs(x.r.stats-x.r.M));
+ if(srt==='pick'){const rk={a:0,b:1,pass:2};rows.sort((x,y)=>rk[x.r.tag]-rk[y.r.tag]||Math.abs(y.r.lean)-Math.abs(x.r.lean))}else if(srt==='ev')rows.sort((x,y)=>Math.abs(y.r.lean)-Math.abs(x.r.lean));else if(srt==='gap')rows.sort((x,y)=>Math.abs(y.r.stats-y.r.M)-Math.abs(x.r.stats-x.r.M));
  $('#board').innerHTML=rows.map(({g,r})=>`<details class="g ${tcls(r)}" data-id="${esc(g.game_id)}" ${open.has(g.game_id)?'open':''}>${rowHTML(g,r)}${open.has(g.game_id)?panelHTML(g,r):''}</details>`).join('');
- const nb=rows.filter(x=>x.r.tag==='a').length,nl=rows.filter(x=>x.r.tag==='b').length,TA=D.validation.betting.actual.tiers.A;
- $('#kpis').innerHTML=[[nb,'Tier A picks'],[nl,'Tier B picks'],[TA.win+'%','Tier A backtest win rate ('+TA.bets+' bets, '+(TA.roi>0?'+':'')+TA.roi+'% ROI)'],[D.games.filter(g=>g.weather&&g.weather.wind>=15).length,'windy games (15+ mph)']].map(([b,s])=>`<div class="kpi"><b>${esc(b)}</b><span>${esc(s)}</span></div>`).join('');
+ const nb=rows.filter(x=>x.r.tag==='a').length;
+ $('#kpis').innerHTML=[[nb,'bets this week'],['55.2%','special-teams lean at the best Arizona book near kickoff, 2021–26 (604 bets, +5.1%)'],[D.games.filter(g=>g.weather&&g.weather.wind>=15).length,'windy games (15+ mph)']].map(([b,s])=>`<div class="kpi"><b>${esc(b)}</b><span>${esc(s)}</span></div>`).join('');
  renderBooks();renderTeasers(rows);LS.set('nflats_adj_'+D.season+'_'+D.week,ADJ);LS.set('nflats_set2',S);
 }
 
@@ -628,7 +653,7 @@ function refreshGame(id){clearTimeout(refreshGame.t[id]);refreshGame.t[id]=setTi
  const d=document.querySelector(`details[data-id="${CSS.escape(id)}"]`);if(!d)return;const g=D.games.find(x=>x.game_id===id);const r=calc(g);
  d.className='g '+tcls(r);const foc=document.activeElement?.dataset?.f;d.innerHTML=rowHTML(g,r)+(d.open?panelHTML(g,r):'');
  if(foc)d.querySelector(`[data-f="${foc}"]`)?.focus();renderTeasers(D.games.map(g=>({g,r:calc(g)})));LS.set('nflats_adj_'+D.season+'_'+D.week,ADJ);
- const ks=document.querySelectorAll('#kpis .kpi b');if(ks.length){ks[0].textContent=D.games.filter(g=>calc(g).tag==='a').length;ks[1].textContent=D.games.filter(g=>calc(g).tag==='b').length}
+ const ks=document.querySelectorAll('#kpis .kpi b');if(ks.length){ks[0].textContent=D.games.filter(g=>calc(g).tag==='a').length}
  }catch(e){console.log('refresh',e)}},0)}
 refreshGame.t={};
 $('#board').addEventListener('change',e=>{const el=e.target;if(!el.dataset.f)return;const box=el.closest('.adj'),dg=el.closest('details.g');const id=box?box.dataset.g:dg&&dg.dataset.id;if(!id)return;const a=ADJ[id]||(ADJ[id]={});
@@ -665,7 +690,7 @@ getWeek().then(d=>{D=d;
  S=Object.assign({k:D.k_gap,minev:2,bank:1000,kf:.25,stOn:1},LS.get('nflats_set2',{}));
  $('#k').value=S.k;$('#stOn').value=S.stOn;$('#minev').value=S.minev;$('#bank').value=S.bank;$('#kf').value=S.kf;$('#kv').textContent=(+S.k).toFixed(2)+(Math.abs(S.k-D.k_gap)<.005?' (backtest)':'');
  ADJ=LS.get('nflats_adj_'+D.season+'_'+D.week,{});MYB=LS.get('nflats_books',null);
- $('#title').textContent=`Week ${D.week}: special teams plus key numbers at a good price is the backtested edge.`;
+ $('#title').textContent=`Week ${D.week}: bet the special-teams lean at your best book.`;
  $('#asof').textContent=`Ratings use ${D.data_through.games} games through week ${D.data_through.week} of ${D.season}; market lines as of ${D.generated}; weather from ${D.weather_source||'n/a'}.`;
  $('#cst').textContent=D.c_st;$('#kgap').textContent=D.k_gap;
  const k0=LS.get('nflats_okey','');if(k0){$('#okey').value=k0;$('#ofeed').href=feedURL(k0)}

@@ -106,6 +106,11 @@ def run(season=None, week=None, log=print, download=True):
         path, _ = predict4.main(season, week)
     except Exception as e:
         log(f"  matchup layer skipped ({e.__class__.__name__}: {e}); board still built")
+    try:
+        from . import cover2
+        cover2.enrich(path)
+    except Exception as e:
+        log(f"  smooth cover model skipped ({e.__class__.__name__}: {e}); page falls back to the older tables")
     shutil.copy(path, os.path.join(data.DATA_DIR, "current_week.json"))
     log(f"Done: week {week} of {season} is ready")
     return season, week
