@@ -598,13 +598,22 @@ function koText(g){try{const [y,m,d]=g.gameday.split('-').map(Number),[hh,mm]=g.
  return new Date(Date.UTC(y,m-1,d,hh+(dst?4:5),mm)).toLocaleString([],{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}catch(e){return g.weekday.slice(0,3)+' '+g.gametime+' ET'}}
 const pickLbl=(g,side,L)=>side==='home'?`${N(g.home)} ${fmtS(-L)}`:`${N(g.away)} ${fmtS(L)}`;
 const sideTxt=(g,x)=>Math.abs(x)<.25?'a pick’em':`${N(x>0?g.home:g.away)} by ${Math.abs(x).toFixed(1)}`;
+const STPH=[['punt','punting and punt returns','punting'],['ko','kickoffs and kick returns','kickoffs'],['fg','field goals and extra points','kicking accuracy']];
+function stParts(g){const B=D.st_breakdown;if(!B||!B[g.home]||!B[g.away])return null;const c=D.c_st;
+ return STPH.map(([k,lab,short])=>({k,lab,short,h:B[g.home][k],a:B[g.away][k],pts:c*(B[g.home][k]-B[g.away][k])}))}
+function stDriver(g,r){const P=stParts(g);if(!P||Math.abs(r.stAdj)<.05)return '';const sg=Math.sign(r.stAdj),q=P.filter(x=>Math.sign(x.pts)===sg).sort((a,b)=>Math.abs(b.pts)-Math.abs(a.pts));
+ if(!q.length)return '';const share=Math.abs(q[0].pts)/Math.abs(r.stAdj);return share>=.6?`mostly ${q[0].short}`:q.length>1?`${q[0].short} and ${q[1].short}`:q[0].short}
+function stFlags(g,r){const B=D.st_breakdown;if(!B)return [];const fav=r.stAdj>0?g.home:g.away,opp=r.stAdj>0?g.away:g.home;
+ const out=[];if(B[fav]?.flags?.length)out.push(`${N(fav)}' edge may not carry over: ${B[fav].flags.join(', ')}`);
+ if(B[opp]?.flags?.length)out.push(`the gap may be overstated, since the ${N(opp)}' rating may not reflect who plays now: ${B[opp].flags.join(', ')}`);return out}
 function whyHTML(g,r){const sg=r.side==='home'?1:-1,pl=r.side==='home'?-r.L:r.L,fav=x=>N(x>0?g.home:g.away),thr=(D.rule||{thr:.5}).thr;
  const out=[`The model has ${esc(sideTxt(g,r.proj))}; the market has ${esc(sideTxt(g,r.M))}.`];
  const st=Math.abs(r.stAdj)>=.05?`special teams favor the ${fav(r.stAdj)} by ${leanTxt(r.stAdj)} pts`:'special teams are even';
  if(r.tag==='a'){
   const nw=Math.abs(r.news)>=.3?`your news adjustments add ${Math.abs(r.news).toFixed(1)} pts toward the ${fav(r.news)}`:'';
   if(Math.abs(r.news)>Math.abs(r.stAdj))out.push(`<b>Main reason:</b> ${esc(nw)}${Math.abs(r.stAdj)>=.05?`; ${esc(st)}`:''}.`);
-  else out.push(`<b>Main reason:</b> ${esc(st)}, the one factor that has beaten closing lines${nw?`; ${esc(nw)}`:''}.`);
+  else{const dr=stDriver(g,r);out.push(`<b>Main reason:</b> ${esc(st)}${dr?` (${esc(dr)})`:''}, the one factor that has beaten closing lines${nw?`; ${esc(nw)}`:''}.`)}
+  const fl=stFlags(g,r);if(fl.length)out.push(`<b>Caution:</b> ${esc(fl.join('; '))}.`);
   const a=Math.abs(pl);
   if((a===3||a===7)&&r.p.push>=.05)out.push(`Getting the full ${a} matters: about ${Math.round(r.p.push*100)}% of games at this line land exactly on ${a}, a push instead of a loss.`);
   else if(pl===3.5||pl===7.5)out.push(`At ${fmtS(pl)}, a ${Math.floor(a)}-point loss still covers.`);
@@ -744,6 +753,14 @@ function panelHTML(g,r){
  <tr><td>Your news (QB ${f(r.qbNews)}, injuries ${f(r.inj)}, other ${f(r.other)})</td><td>${f(r.news)}</td></tr>
  <tr class="tot"><td>Projection: ${esc(sideTxt(g,r.proj))}</td><td>${f(r.proj)}</td></tr>
  <tr><td>Lean vs market (a bet needs ${(D.rule||{thr:.5}).thr}+ pts)</td><td>${r.lean>=0?'+':'−'}${leanTxt(r.lean)}</td></tr></table>
+ ${(()=>{const P=stParts(g),B=D.st_breakdown;if(!P)return '';const fp=v=>(v>=0?'+':'−')+Math.abs(v).toFixed(2),fe=v=>Math.abs(v)<.05?'even':`${esc(N(v>0?g.home:g.away))} +${Math.abs(v).toFixed(1)}`;
+  const oth=D.c_st*((B[g.home].other||0)-(B[g.away].other||0));
+  return `<h3>Where the special-teams edge comes from</h3><table class="bd"><tr><td class="mut small">Per game (expected points)</td><td class="mut small">${esc(g.home)} / ${esc(g.away)} → edge</td></tr>`+
+  P.map(x=>`<tr><td>${esc(x.lab.charAt(0).toUpperCase()+x.lab.slice(1))}</td><td>${fp(x.h)} / ${fp(x.a)} → ${fe(x.pts)}</td></tr>`).join('')+
+  (Math.abs(oth)>=.05?`<tr><td>Other (fakes, penalties, safeties)</td><td>→ ${fe(oth)}</td></tr>`:'')+
+  `<tr class="tot"><td>Special-teams adjustment</td><td>${fe(r.stAdj)}</td></tr></table>
+  ${stFlags(g,r).length?`<p class="small"><b>Caution:</b> ${esc(stFlags(g,r).join('; '))}.</p>`:''}
+  <p class="note">How to read it: punting and kickoffs move field position, which converts to expected points (pinning a team at its 10 instead of its 25 is worth about 1 point to the defense); field goals and extra points are points vs what an average kicker makes from those spots. In your data, punting is the biggest and steadiest part (54% of the differences between teams; a team's first-half punting predicts its second half best), kickoffs come next, and kicking accuracy barely carries over (first half to second half correlation 0.05). An edge built on punting is more trustworthy than one built on a kicker's hot streak. The pick uses the total, which predicted better than the parts in testing.</p>`})()}
  <h3>Cover odds at ${esc(lineLabel(g,r.L))}${r.book?' ('+esc(r.book)+')':''}</h3>
  <table class="bd"><tr><td>${esc(N(g.home))} cover / push / ${esc(N(g.away))} cover</td><td>${pct(r.p.h)} / ${pct(r.p.push)} / ${pct(r.p.a)}</td></tr>
  <tr><td>Model expected return: ${esc(N(g.home))} ${esc(odds(r.oh))} / ${esc(N(g.away))} ${esc(odds(r.oa))}</td><td>${(r.evH*100).toFixed(1)}% / ${(r.evA*100).toFixed(1)}%</td></tr>
