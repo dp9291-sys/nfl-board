@@ -193,6 +193,11 @@ textarea{font:14px ui-monospace,monospace;width:100%;border:1px solid var(--line
 <tr><td><b>Under in 10+ mph wind (outdoors), closing total, 2015–26</b></td><td class="r">648</td><td class="r">57.9%</td><td class="r">+12.2%</td><td><b>Added as a bet</b> (passes FDR)</td></tr>
 <tr><td>Same, 1999–2014 (never used in development)</td><td class="r">1,134</td><td class="r">52.9%</td><td class="r">+2.3%</td><td>Weaker; 15+ mph: 56.8%</td></tr>
 <tr><td>Under when wind is below 10 mph (control), 2015–26</td><td class="r">1,274</td><td class="r">47.6%</td><td class="r">−7.5%</td><td>Wind is what matters</td></tr>
+<tr><td><b>Under with the archived near-kickoff forecast 10+ mph, 2021–26</b></td><td class="r">214</td><td class="r">58.9%</td><td class="r">+12.9%</td><td><b>Validated</b> with forecasts you would have had</td></tr>
+<tr><td>Same, forecast 1 / 2 / 3 days out, 2024–26</td><td class="r">143 / 163 / 149</td><td class="r">52.4 / 54.0 / 50.3%</td><td class="r">+0.3 / +3.4 / −3.9%</td><td>No edge: bet on game day only</td></tr>
+<tr><td>Special teams at the Sunday-night line (before the Tuesday opener)</td><td class="r">536</td><td class="r">53.0%</td><td class="r">+1.0%</td><td>Worse than near kickoff (55.2%)</td></tr>
+<tr><td>Special teams at look-ahead lines a week early</td><td class="r">92</td><td class="r">47.8%</td><td class="r">−8.2%</td><td>Too few lines posted; no edge</td></tr>
+<tr><td>Full stats line 3+ pts off the Sunday-night line</td><td class="r">358</td><td class="r">53.9%</td><td class="r">—</td><td>Lines move its way 62% vs 20%, but not significant against the spread</td></tr>
 <tr><td>Teaser legs (dogs +1.5–2.5, favs −7.5–8.5), 2015–26</td><td class="r">750</td><td class="r">75.6%</td><td class="r">—</td><td>Not significant</td></tr>
 <tr><td>Same, 1999–2014</td><td class="r">615</td><td class="r">72.2%</td><td class="r">—</td><td>Below 73.9% break-even</td></tr>
 <tr><td>Bet special teams at the opener when the stats model agrees</td><td class="r">255</td><td class="r">54.5%</td><td class="r">+3.6%</td><td>No better than kickoff (54.9%)</td></tr>
@@ -206,7 +211,7 @@ textarea{font:14px ui-monospace,monospace;width:100%;border:1px solid var(--line
 <tr><td>Missed-tackle rate (PFR), 2020–26</td><td class="r">44</td><td class="r">47.7%</td><td class="r">—</td><td>No edge</td></tr>
 <tr><td>Offensive-line continuity, 2016–26</td><td class="r">119</td><td class="r">47.1%</td><td class="r">—</td><td>No edge (t 0.24)</td></tr>
 </tbody></table></div>
-<p class="note">Wind unders use the actual game-time wind; the board uses the kickoff-hour forecast, which adds some error. Across 1999–2026, unders in 10+ mph wind won 54.7% (1,782 games). Stakes assume about a 2% edge to allow for forecast error. Domes and retractable roofs are excluded.</p>
+<p class="note">Wind unders use the actual game-time wind; the board uses the kickoff-hour forecast, which adds some error. Across 1999–2026, unders in 10+ mph wind won 54.7% (1,782 games); with archived near-kickoff forecasts, 2021–2026, 58.9% (214). Forecasts 1–3 days out showed no edge, so unders are game-day bets only. Stakes assume about a 2% edge. Domes and retractable roofs are excluded.</p>
 <h3 style="margin-top:22px">Checks on the design itself (model v1.0)</h3>
 <div class="scroll"><table class="t stack"><thead><tr><th>Question</th><th>Result</th><th>Decision</th></tr></thead><tbody>
 <tr><td>Does special teams make the projection closer to final margins than the closing line?</td><td>Barely: average miss 9.753 vs 9.758 pts (t 0.37); cover odds slightly better than a coin flip</td><td>Its edge is in which side covers, not margin size: thin</td></tr>
@@ -218,7 +223,7 @@ textarea{font:14px ui-monospace,monospace;width:100%;border:1px solid var(--line
 <h3 style="margin-top:22px">Known limits of these backtests</h3>
 <ul class="small" style="max-width:860px;padding-left:18px;line-height:1.55">
 <li>Ratings use only games before each week, and weights only earlier seasons. Lines are closing lines (or your downloaded snapshots), which matches betting near kickoff.</li>
-<li><b>Wind unders used actual game-time wind.</b> The board uses forecasts. The weather forecast archive download (above) tests the rule with the forecasts you would actually have had.</li>
+<li>Wind unders: the long record used actual game-time wind; the 2021–2026 check with archived near-kickoff forecasts (what you would have had) gave the same result, 58.9%. Forecasts from 1–3 days out did not hold up, so the board only marks an under as a bet within 12 hours of kickoff with a forecast under 6 hours old.</li>
 <li>Injury data is each week's final report (out by Friday or Saturday): fine for bets near kickoff, not for Tuesday bets. The full stats line also knew each game's actual starting QB; it is context only and not in the projection.</li>
 <li>2013–2026 was used heavily while building the model, and 2000–2012 has now been examined once. The clean test is model v1.0's live record from Nov 24, 2026 on, saved in the encrypted prediction log.</li>
 <li>Ranges allow for good and bad seasons (season-clustered), since bets within a season are not independent.</li>
@@ -571,6 +576,9 @@ function calc(g){
 
 const NICK=Object.fromEntries(Object.entries(TEAMN).map(([n,a])=>[a,n.split(' ').pop()]));
 const N=t=>NICK[t]||t;
+function koDate(g){const [y,m,d]=g.gameday.split('-').map(Number),[hh,mm]=g.gametime.split(':').map(Number);
+ const sun=(mon,n)=>{const f=new Date(Date.UTC(y,mon,1)).getUTCDay();return 1+(7-f)%7+7*(n-1)};
+ const t=Date.UTC(y,m-1,d),dst=t>=Date.UTC(y,2,sun(2,2))&&t<Date.UTC(y,10,sun(10,1));return new Date(Date.UTC(y,m-1,d,hh+(dst?4:5),mm))}
 function koText(g){try{const [y,m,d]=g.gameday.split('-').map(Number),[hh,mm]=g.gametime.split(':').map(Number);
  const sun=(mon,n)=>{const f=new Date(Date.UTC(y,mon,1)).getUTCDay();return 1+(7-f)%7+7*(n-1)};
  const t=Date.UTC(y,m-1,d),dst=t>=Date.UTC(y,2,sun(2,2))&&t<Date.UTC(y,10,sun(10,1));
@@ -593,7 +601,7 @@ function whyHTML(g,r){const sg=r.side==='home'?1:-1,pl=r.side==='home'?-r.L:r.L,
  else if(r.worse)out.push(`It leans ${esc(N(r.side==='home'?g.home:g.away))} (${esc(st)}), but your books only offer ${esc(pickLbl(g,r.side,r.L))} against the market’s ${esc(pickLbl(g,r.side,r.M))}. Every backtested bet was at the market number or better.`);
  else out.push(`No bet: ${esc(st)}${Math.abs(r.news)>=.05?` and your news adds ${Math.abs(r.news).toFixed(1)}`:''}, under the ${thr}-point threshold.`);
  return out.join(' ')}
-const UND={wind:10,edge:.02,cap:.02};
+const UND={wind:10,edge:.02,cap:.02,hours:12,fresh:6};
 const EXPO={game:.03,week:.10};let GFAC={},WKSCALE=1,EXPO_RAW=0;
 const expoFac=g=>(GFAC[g.game_id]||1)*WKSCALE;
 function exposure(){GFAC={};WKSCALE=1;let tot=0;
@@ -627,11 +635,13 @@ async function exportLog(){const msg=$('#expMsg');try{msg.textContent='Collectin
 function nBets(){return D.games.reduce((n,g)=>n+(calc(g).tag==='a'?1:0)+(totCalc(g).bet?1:0),0)}
 function totCalc(g){const w=g.weather,out={on:false};const outdoor=g.venue&&g.venue.outdoor!=null?g.venue.outdoor:g.roof==='outdoors';
  if(!outdoor||!w||w.wind==null)return out;out.wind=w.wind;if(w.wind<UND.wind)return out;
+ let hrs=99,age=99;try{hrs=(koDate(g)-Date.now())/36e5}catch(e){}const wx=LS.get('nflats_wx_'+D.season+'_'+D.week,null);if(wx&&wx.ts)age=(Date.now()-wx.ts)/36e5;
+ if(hrs>UND.hours||age>UND.fresh){out.watch=true;out.hrs=hrs;out.age=age;return out}
  const lv=LIVE[g.game_id],mkt=lv&&lv.tot!=null?lv.tot:g.total_line;let T=null,o=-110,book=null;
  if(lv&&lv.books.length){const mine=myBooks();let best=null;for(const b of lv.books){if(b.tot==null||!mine.has(b.key))continue;const pr=b.tu??-110;if(!best||b.tot>best.tot||(b.tot===best.tot&&payout(pr)>payout(best.pr)))best={tot:b.tot,pr,t:b.title}}if(best){T=best.tot;o=best.pr;book=best.t}}
  if(T==null){T=g.total_line;o=-110}if(T==null)return out;
  const worse=mkt!=null&&mkt-T>=.5;const rawStake=worse?0:S.bank*Math.min(UND.cap,S.kf*UND.edge/payout(o));Object.assign(out,{on:true,T,o,book,mkt,worse,bet:!worse,rawStake,stake:rawStake*expoFac(g)});return out}
-const windWhy=u=>`Wind ${u.wind} mph forecast at kickoff: across 1999–2026, unders in 10+ mph wind won 54.7% at closing totals (likely 53–57%, allowing for good and bad seasons); forecasts add some error, so expect a little less.`;
+const windWhy=u=>`Wind ${u.wind} mph forecast at kickoff: with the forecasts bettors actually had near kickoff (2021–2026), unders at 10+ mph won 58.9% (214 games); across 1999–2026 with actual wind, 54.7% (likely 53–57%). Forecasts from a day or more out did not hold up, so this is a game-day bet.`;
 const leanTxt=x=>{const v=Math.abs(x),thr=(D.rule||{thr:.5}).thr;let t=v.toFixed(1);if(v<thr&&+t>=thr)t=(Math.floor(v*100)/100).toFixed(2);return t};
 const tcls=(r,u)=>r.tag==='a'||(u&&u.bet)?'ta':'tp';
 function rowHTML(g,r){
@@ -644,6 +654,7 @@ function rowHTML(g,r){
  else{verdict=`Bet ${N(pickT)} ${fmtS(pl)}`;sub=`${odds(o)}${r.book?' at '+r.book:(r.lv?' at the consensus (none of your books lists this game)':'')}${r.stake>0?' · stake $'+r.stake.toFixed(0)+(r.fac<.999?' (cut for exposure cap)':''):''}`}
  if(!noLine&&u.bet){if(r.tag==='a')extra=`Also bet ${uLine}`;else{extra=`Spread: ${verdict.toLowerCase()} (${sub.charAt(0).toLowerCase()+sub.slice(1)})`;verdict=`Bet Under ${u.T}`;sub=uLine.replace(/^Under \S+ /,'')}}
  else if(!noLine&&u.on&&u.worse)extra=`Wind under: pass at your books (market ${u.mkt}, your best ${u.T})`;
+ else if(!noLine&&u.watch)extra=u.hrs>UND.hours?`Wind under: watch (${u.wind} mph forecast, ${u.hrs>48?Math.round(u.hrs/24)+' days':Math.round(u.hrs)+' hours'} out). Bet only if 10+ mph holds within 12 hours of kickoff`:`Wind under: refresh weather (forecast is ${Math.round(u.age)} hours old)`;
  const evs=(r.ev*100).toFixed(1).replace('-','−');
  return `<summary><span class="c-top"><span><span class="c-when">${esc(koText(g))}</span><span class="c-mt">${esc(N(g.away))} @ ${esc(N(g.home))}</span><span class="c-meta">${esc(meta)}</span></span>
  <span class="tag ${r.tag==='a'||u.bet?'a':'pass'}">${r.tag==='a'||u.bet?'BET':'PASS'}</span></span>
