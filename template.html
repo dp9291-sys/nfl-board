@@ -162,8 +162,8 @@ textarea{font:14px ui-monospace,monospace;width:100%;border:1px solid var(--line
 </div></section>
 <section class="band"><div class="wrap">
 <h2>Teaser legs that cross 3 and 7</h2>
-<p class="mut" style="max-width:820px">Six-point teasers on underdogs of +1.5 to +2.5 (moved to +7.5/+8.5) won 77% of legs in 2015–2026, but only 72% in 1999–2014, below the 73.9% a 2-team teaser at −120 needs, and many books now charge −130 or more. Treat this as a pricing tool, not a proven edge. Tick 2 or 3 legs to price a ticket with this week's projections.</p>
-<div class="row" style="margin-bottom:10px"><div><label for="tprice">Ticket price</label><select id="tprice"><option value="-120">2-team at −120</option><option value="-110">2-team at −110</option><option value="160">3-team at +160</option></select></div><div id="tres" class="pick"></div></div>
+<p class="mut" style="max-width:820px">Six-point teaser legs that cross 3 and 7 won 75.6% in 2015–2026 (750 legs). Underdog legs (+1.5 to +2.5, moved to +7.5/+8.5) won 77%, but only 72% in 1999–2014. At your prices each leg has to win <b id="tbeTxt">75.8%</b>, so on average these are about break-even: treat this as a pricing tool, not a proven edge. Road underdogs and low totals have done best; home favourites worst. Enter your book's prices, then tick legs to price a ticket with this week's projections.</p>
+<div class="row" style="margin-bottom:10px"><div><label for="tsize">Ticket</label><select id="tsize"><option value="2">2-team</option><option value="3">3-team</option></select></div><div><label for="tprice">Price (American odds)</label><input id="tprice" type="number" step="5" inputmode="numeric" style="width:96px"></div><div id="tres" class="pick"></div></div>
 <div class="teas" id="teas"></div>
 </div></section>
 
@@ -825,14 +825,26 @@ function renderTeasers(rows){
    const hist=D.backtest.teasers[kind+'_'+side];
    legs.push({id:g.game_id+side,team:side==='home'?g.home:g.away,opp:side==='home'?g.away:g.home,from:side==='home'?-L:L,to:side==='home'?-tl:tl,p,hist,kind,low:g.eff_total<=44,windy:g.weather&&g.weather.wind>=15})}}
  const sel=new Set(LS.get('nflats_teas',[]));
- $('#teas').innerHTML=legs.length?`<div class="leg small mut"><span></span><span>Leg</span><span>Teased</span><span>This week</span><span class="c-hist">Since 2018</span></div>`+legs.map(l=>`<label class="leg"><input type="checkbox" data-leg="${esc(l.id)}" data-p="${l.p}" ${sel.has(l.id)?'checked':''}><span class="mt" style="font-size:20px">${esc(l.team)} ${esc(fmtS(l.from))}<small>vs ${esc(l.opp)} · ${l.kind==='dog'?'underdog':'favourite'}${l.low?' · low total':''}${l.windy?' · windy':''}</small></span><span class="ln">${esc(fmtS(l.to))}</span><span class="ln ${l.p>.7385?'pos':''}">${pct(l.p)}</span><span class="ln c-hist mut">${pct(l.hist.win)} <small class="small">(${l.hist.n})</small></span></label>`).join(''):`<div class="empty">No qualifying legs at current lines this week. Legs appear when a team sits at +1.5 to +2.5 or −7.5 to −8.5.</div>`;
+ $('#teas').innerHTML=legs.length?`<div class="leg small mut"><span></span><span>Leg</span><span>Teased</span><span>This week</span><span class="c-hist">Since 2018</span></div>`+legs.map(l=>`<label class="leg"><input type="checkbox" data-leg="${esc(l.id)}" data-p="${l.p}" ${sel.has(l.id)?'checked':''}><span class="mt" style="font-size:20px">${esc(l.team)} ${esc(fmtS(l.from))}<small>vs ${esc(l.opp)} · ${l.kind==='dog'?'underdog':'favourite'}${l.low?' · low total':''}${l.windy?' · windy':''}</small></span><span class="ln">${esc(fmtS(l.to))}</span><span class="ln ${l.p>tBE()?'pos':''}" data-pc>${pct(l.p)}</span><span class="ln c-hist mut">${pct(l.hist.win)} <small class="small">(${l.hist.n})</small></span></label>`).join(''):`<div class="empty">No qualifying legs at current lines this week. Legs appear when a team sits at +1.5 to +2.5 or −7.5 to −8.5.</div>`;
  tPrice();
 }
-function tPrice(){const ps=[...document.querySelectorAll('[data-leg]:checked')].map(x=>+x.dataset.p);const pr=+$('#tprice').value;
- const n=pr>0?3:2;LS.set('nflats_teas',[...document.querySelectorAll('[data-leg]:checked')].map(x=>x.dataset.leg));
- if(ps.length!==n){$('#tres').innerHTML=`<span class="mut small">Pick ${n} legs (${ps.length} chosen)</span>`;return}
+/* teaser prices: defaults are the user's book (2-team -135, 3-team +130); editable and remembered */
+const TDEF={2:-135,3:130};
+function tSet(){const t=LS.get('nflats_tprice',null)||{n:2,2:TDEF[2],3:TDEF[3]};for(const k of[2,3])if(!(Math.abs(+t[k])>=100))t[k]=TDEF[k];if(t.n!==2&&t.n!==3)t.n=2;return t}
+function tBE(){const t=tSet(),pr=+t[t.n];return Math.pow(1/(1+payout(pr)),1/t.n)}
+function tInit(){const t=tSet();$('#tsize').value=String(t.n);$('#tprice').value=t[t.n];
+ $('#tsize').addEventListener('change',()=>{const t=tSet();t.n=+$('#tsize').value;LS.set('nflats_tprice',t);$('#tprice').value=t[t.n];tPrice()});
+ $('#tprice').addEventListener('change',()=>{const t=tSet(),v=+$('#tprice').value;if(Math.abs(v)>=100){t[t.n]=v;LS.set('nflats_tprice',t)}else $('#tprice').value=t[t.n];tPrice()})}
+function tPrice(){const ps=[...document.querySelectorAll('[data-leg]:checked')].map(x=>+x.dataset.p);const t=tSet(),n=t.n,pr=+t[n],be=tBE();
+ LS.set('nflats_teas',[...document.querySelectorAll('[data-leg]:checked')].map(x=>x.dataset.leg));
+ $('#tbeTxt')&&($('#tbeTxt').textContent=pct(be)+` (${n}-team at ${odds(pr)})`);
+ document.querySelectorAll('[data-leg]').forEach(x=>{const c=x.closest('.leg')&&x.closest('.leg').querySelector('[data-pc]');if(c)c.classList.toggle('pos',+x.dataset.p>be)});
+ document.querySelectorAll('[data-hw]').forEach(c=>{const v=+c.dataset.hw;c.className='r '+(v>be?'pos':'neg');c.textContent=v>be?'above':'below'});
+ $('#ttHead')&&($('#ttHead').textContent=`vs ${pct(be)} needed`);
+ const base=`<span class="mut small">Each leg needs ${pct(be)}</span>`;
+ if(ps.length!==n){$('#tres').innerHTML=`<span class="mut small">Pick ${n} legs (${ps.length} chosen) · each leg needs ${pct(be)}</span>`;return}
  const pw=ps.reduce((a,b)=>a*b,1),ev=pw*payout(pr)-(1-pw);
- $('#tres').innerHTML=`Ticket wins ${pct(pw)} · EV <span class="${ev>0?'pos':'neg'}">${(ev*100).toFixed(1)}%</span>`}
+ $('#tres').innerHTML=`Ticket wins ${pct(pw)} · EV <span class="${ev>0?'pos':'neg'}">${(ev*100).toFixed(1)}%</span> · ${base}`}
 
 let rsort={k:'margin',d:-1};
 function renderRatings(){
@@ -861,7 +873,7 @@ function renderBacktest(){
  $('#bars').innerHTML=ss.map(([s,v])=>`<div class="bar" style="grid-template-columns:86px minmax(0,1fr) 64px"><span class="num">${esc(s)}<small class="mut"> (${v.n})</small></span><div class="track"><div class="fill" style="width:${w(v.hit)}%"></div><div class="be" style="left:${w(52.4)}%"></div></div><span class="num" style="text-align:right">${v.hit}%</span></div>`).join('')+`<div class="bar small mut" style="grid-template-columns:86px minmax(0,1fr) 64px"><span></span><span style="display:flex;justify-content:space-between"><span>40%</span><span>50%</span><span>60%</span></span><span></span></div>`;
  $('#bt').innerHTML=`<thead><tr><th>Model</th><th class="r">Avg miss</th><th class="r">ATS all</th><th class="r">ATS gap&gt;2</th></tr></thead><tbody>`+ab.map(r=>`<tr><td>${esc(r.model)}</td><td class="r">${r.MAE}</td><td class="r">${r['hit>0']===''?'—':r['hit>0']+'%'}</td><td class="r">${r['hit>2']===''?'—':r['hit>2']+'%'}</td></tr>`).join('')+'</tbody>';
  const T=b.teasers,lab={dog_home:'Home dog +1.5 to +2.5',dog_away:'Road dog +1.5 to +2.5',fav_home:'Home fav −7.5 to −8.5',fav_away:'Road fav −7.5 to −8.5'};
- $('#tt').innerHTML=`<thead><tr><th>Leg type</th><th class="r">Legs</th><th class="r">Won</th><th class="r">vs 73.9% needed</th></tr></thead><tbody>`+Object.keys(lab).map(k=>`<tr><td>${lab[k]}</td><td class="r">${T[k].n}</td><td class="r">${pct(T[k].win)}</td><td class="r ${T[k].win>.7385?'pos':'neg'}">${T[k].win>.7385?'above':'below'}</td></tr>`).join('')+'</tbody>';
+ $('#tt').innerHTML=`<thead><tr><th>Leg type</th><th class="r">Legs</th><th class="r">Won</th><th class="r" id="ttHead">vs ${pct(tBE())} needed</th></tr></thead><tbody>`+Object.keys(lab).map(k=>`<tr><td>${lab[k]}</td><td class="r">${T[k].n}</td><td class="r">${pct(T[k].win)}</td><td data-hw="${T[k].win}" class="r ${T[k].win>tBE()?'pos':'neg'}">${T[k].win>tBE()?'above':'below'}</td></tr>`).join('')+'</tbody>';
 }
 
 /* ---------- bet log ---------- */
@@ -918,7 +930,7 @@ $('#opaste').addEventListener('change',()=>{const v=$('#opaste').value.trim();if
 $('#ofile').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;loadFeed(await f.text(),f.name);e.target.value=''});
 document.addEventListener('dragover',e=>{if(e.dataTransfer&&[...e.dataTransfer.types].includes('Files'))e.preventDefault()});
 document.addEventListener('drop',async e=>{const f=e.dataTransfer&&e.dataTransfer.files[0];if(!f||!/json/i.test(f.type+f.name))return;e.preventDefault();loadFeed(await f.text(),f.name)});
-$('#teas').addEventListener('change',tPrice);$('#tprice').addEventListener('change',tPrice);
+$('#teas').addEventListener('change',tPrice);tInit();
 $('#rt').addEventListener('click',e=>{const k=e.target.closest('th')?.dataset.sort;if(!k)return;rsort=rsort.k===k?{k,d:-rsort.d}:{k,d:k==='sack_allowed'?1:-1};renderRatings()});
 $('#log').addEventListener('change',e=>{const tr=e.target.closest('tr[data-b]');if(!tr)return;const b={...BETS.find(x=>x.id===tr.dataset.b)};b[e.target.dataset.bf]=e.target.value;saveBet(b)});
 $('#log').addEventListener('click',e=>{const id=e.target.closest('[data-bdel]')?.dataset.bdel;if(id)delBet(id)});
