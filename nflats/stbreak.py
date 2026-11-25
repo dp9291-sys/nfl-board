@@ -1,12 +1,12 @@
 """Special-teams breakdown for the week file (explanatory only; the model uses the total).
 
 Per team, using the same decayed, shrunk ratings as the model (prior season + this season before this week):
-  fg   : field goals and extra points vs expected (points per game)
+  fg   : extra points (nflverse's special-teams flag leaves field goals out of the rating)
   punt : punting, coverage and punt returns, net (field position -> expected points)
   ko   : kickoffs, coverage and kick returns, net
   other: everything else so the parts add to the model's number (fakes, penalties, safeties ...)
 Flags: early season (rating leans on last season), new kicker / punter since most of the rating was built,
-one big play (return TD or block) supplying a large share, edge mostly from kicking (the least repeatable part).
+one big play (return TD or block) supplying a large share, edge mostly from extra points (the least repeatable part).
 """
 import json
 import os
@@ -97,7 +97,7 @@ def breakdown(S, W):
                     flags.append(f"{when}: one {_label(top)} supplies {abs(per_game):.1f} pts of the rating")
         tot = R["total"][i]
         if abs(tot) >= 0.5 and abs(R["fg"][i]) > 0.5 * abs(tot) and np.sign(R["fg"][i]) == np.sign(tot):
-            flags.append("rating is mostly kicking accuracy, the least repeatable part")
+            flags.append("rating is mostly extra-point results, the least repeatable part")
         out[t] = {"fg": round(float(R["fg"][i]), 2), "punt": round(float(R["punt"][i]), 2), "ko": round(float(R["ko"][i]), 2),
                   "other": round(float(R["other"][i]), 2), "total": round(float(tot), 2), "games": games_now, "flags": flags}
     return out
