@@ -39,6 +39,14 @@
 "hash": "5db11f421c4ca89d",
 "model_version": "v1.0",
 "built_at": "2026-11-25T21:39:30Z"
+},
+{
+"file": "2026-w12-20261126T214018.json",
+"season": 2026,
+"week": 12,
+"hash": "86242395904edd8a",
+"model_version": "v1.0",
+"built_at": "2026-11-26T21:40:18Z"
 }
 ]
 }
