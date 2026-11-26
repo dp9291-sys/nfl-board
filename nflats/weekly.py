@@ -121,6 +121,11 @@ def run(season=None, week=None, log=print, download=True):
         stbreak.enrich(path)
     except Exception as e:
         log(f"  special-teams breakdown skipped ({e.__class__.__name__}: {e})")
+    try:
+        from . import injlive
+        injlive.enrich(path)
+    except Exception as e:
+        log(f"  live-injury inputs skipped ({e.__class__.__name__}: {e}); page shows nflverse reports only")
     shutil.copy(path, os.path.join(data.DATA_DIR, "current_week.json"))
     log(f"Done: week {week} of {season} is ready")
     return season, week

@@ -59,7 +59,7 @@ button.pri{background:var(--turf);color:#fff;border-color:var(--turf)}
 .pick{font:700 22px/1.1 "Barlow Condensed","Arial Narrow",sans-serif;white-space:nowrap}.pick small{display:block;font:500 14px Barlow;color:var(--mut)}
 .tag{font:700 15px "Barlow Condensed","Arial Narrow",sans-serif;text-align:center;border-radius:4px;padding:4px 10px;border:2px solid var(--line);white-space:nowrap;flex:none}
 .tag.a{background:var(--turf);color:#fff;border-color:var(--turf)}.tag.b{border-color:var(--turf);color:var(--good)}.tag.pass{color:var(--mut)}
-.pos{color:var(--good)}.neg{color:var(--red)}
+.pos{color:var(--good)}.neg{color:var(--red)}.warnline{border-left:3px solid var(--red);padding-left:9px}
 .panel{padding:0 18px 8px;max-width:900px}
 .bd{width:100%;border-collapse:collapse;font-size:15px}.bd td{padding:5px 0;border-bottom:1px dotted var(--line)}.bd td:last-child{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .bd tr.tot td{border-top:2px solid var(--ink);border-bottom:0;font-weight:600}
@@ -116,6 +116,7 @@ textarea{font:14px ui-monospace,monospace;width:100%;border:1px solid var(--line
  <label>Odds API key (saved in this browser only)<input type="password" id="okey" autocomplete="off" spellcheck="false" style="width:280px"></label>
  <button class="pri" id="oRefresh">Refresh lines</button>
  <button id="wRefresh">Refresh weather</button>
+ <button id="iRefresh">Refresh injuries</button>
 </div>
 <p class="note" id="ostat">Enter your key and press Refresh lines. Each refresh costs about 4 credits (US and EU books × spreads and totals).</p>
 <details id="mybooks" style="margin-top:6px"><summary class="small"><b>My sportsbooks</b> <span id="mbN" class="mut"></span></summary>
@@ -338,6 +339,42 @@ const CHIPS=[["QB→backup","3.0"],["WR1",".6"],["RB1",".5"],["TE1",".1"],["LT",
 /* what the closing market typically moves per full-time starter out, 2013-2026 (snap share x status weight scales it) */
 const MKT_INJ={WR:.70,RB:.69,DL:.58,LB:.50,OL:.34,DB:.31,TE:0},INJ_GRP={WR:"WR",TE:"TE",RB:"RB",FB:"RB",T:"OL",G:"OL",C:"OL",OL:"OL",OT:"OL",OG:"OL",DE:"DL",DT:"DL",NT:"DL",DL:"DL",LB:"LB",ILB:"LB",OLB:"LB",MLB:"LB",CB:"DB",S:"DB",SS:"DB",FS:"DB",DB:"DB"},INJ_SW={Out:1,Doubtful:.9,Questionable:.15};
 const mktPts=x=>(MKT_INJ[INJ_GRP[x.pos]]||0)*(x.snap||0)*(INJ_SW[x.status]??(x.status&&x.status.startsWith("Out")?1:0));
+/* ---------- live injury reports ----------
+   nflverse's injury file can lag the official reports by days (Thanksgiving and other short weeks), so the phone
+   pulls a live source: ESPN's league injury feed first, Sleeper's player feed if ESPN can't be reached. Only game
+   designations are kept (Out, Doubtful, Questionable), priced like the official report using recent snap shares
+   from the build (D.snaps). Cached on this phone for 30 minutes. */
+const ESPN_INJ='https://site.api.espn.com/apis/site/v2/sports/football/nfl/injuries',SLEEPER_P='https://api.sleeper.app/v1/players/nfl';
+const INJ_TEAM={WSH:'WAS',LAR:'LA',JAC:'JAX',OAK:'LV',SD:'LAC',STL:'LA'},INJ_KEEP={Out:'Out',Doubtful:'Doubtful',Questionable:'Questionable'};
+const normName=n=>String(n||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[.'’`]/g,'').replace(/\b(jr|sr|ii|iii|iv|v)\b/g,'').replace(/[^a-z ]/g,' ').replace(/\s+/g,' ').trim();
+let SNAPIX=null;
+function snapIx(){if(SNAPIX)return SNAPIX;SNAPIX={t:{},all:{}};for(const[t,l]of Object.entries(D.snaps||{})){const m=SNAPIX.t[t]={};for(const[n,pos,sh]of l){const k=normName(n);m[k]=[pos,sh];if(!(k in SNAPIX.all))SNAPIX.all[k]=[pos,sh]}}return SNAPIX}
+function injEntry(team,name,pos,status,extra){const ix=snapIx(),k=normName(name),hit=(ix.t[team]||{})[k]||ix.all[k];
+ return Object.assign({name,pos:hit?hit[0]:pos||'',status,snap:hit?hit[1]:0,matched:!!hit},extra||{})}
+async function liveEspn(teams){const r=await fetch(ESPN_INJ,{cache:'no-store'});if(!r.ok)throw new Error('ESPN '+r.status);const j=await r.json();const out={};
+ for(const T of j.injuries||[])for(const x of T.injuries||[]){const a=x.athlete||{},ab=(a.team&&a.team.abbreviation)||'',team=INJ_TEAM[ab]||ab;const st=INJ_KEEP[x.status];
+  if(!st||!teams.has(team))continue;(out[team]=out[team]||[]).push(injEntry(team,a.displayName,a.position&&a.position.abbreviation,st,{date:x.date||null,note:x.shortComment||''}))}
+ return{src:'ESPN',ts:Date.parse(j.timestamp)||Date.now(),teams:out}}
+async function liveSleeper(teams){const r=await fetch(SLEEPER_P,{cache:'no-store'});if(!r.ok)throw new Error('Sleeper '+r.status);const j=await r.json();const out={};
+ for(const p of Object.values(j)){const team=INJ_TEAM[p.team]||p.team;const st=INJ_KEEP[p.injury_status];if(!st||!teams.has(team))continue;
+  (out[team]=out[team]||[]).push(injEntry(team,p.full_name||((p.first_name||'')+' '+(p.last_name||'')),p.position,st,{note:p.injury_body_part||''}))}
+ return{src:'Sleeper',ts:Date.now(),teams:out}}
+let LIVEINJ=null,INJBUSY=false;
+function injStale(){return D.injury_week==null||D.injury_week<D.week}
+async function refreshInjuries(force){if(INJBUSY||!D)return;const c=LS.get('nflats_injlive',null);
+ if(!force&&c&&c.season===D.season&&c.week===D.week&&Date.now()-c.fetched<30*60000){LIVEINJ=c;return}
+ INJBUSY=true;const teams=new Set(D.games.flatMap(g=>[g.home,g.away]));let res=null,errs=[];
+ for(const f of[liveEspn,liveSleeper]){try{res=await f(teams);break}catch(e){errs.push(e.message||String(e))}}
+ INJBUSY=false;
+ if(res){for(const t in res.teams)res.teams[t].sort((a,b)=>mktPts(b)-mktPts(a));res.fetched=Date.now();res.season=D.season;res.week=D.week;res.errs=errs;LIVEINJ=res;LS.set('nflats_injlive',res);
+  if(force)toast(`Injuries updated from ${res.src}`)}
+ else{LIVEINJ=Object.assign({failed:true,errs,fetched:Date.now()},c||{});if(force)toast('Could not reach ESPN or Sleeper for injuries')}
+ render();renderHealth()}
+function injFor(g){/* which report to show for this game: live feed for games not yet finished, else the nflverse report */
+ const I=g.injuries||{},off={home:I.home||[],away:I.away||[]},offCur=!injStale();
+ const L=LIVEINJ&&!LIVEINJ.failed&&LIVEINJ.teams&&LIVEINJ.week===D.week?LIVEINJ:null;let done=false;try{done=Date.now()>koDate(g).getTime()+4*3600e3}catch(e){}
+ if(L&&!done)return{src:L.src,ts:L.ts,home:L.teams[g.home]||[],away:L.teams[g.away]||[],live:true};
+ return{src:'nflverse',home:off.home,away:off.away,cur:offCur}}
 let D,S,ADJ={},BETS=[],dbCol=null;
 
 const fmtS=x=>Math.abs(x)<.05?'PK':(x>0?'+':'−')+String(Math.round(Math.abs(x)*10)/10);
@@ -360,10 +397,15 @@ function cover2(mu,L,grp,M){const C=D.cover2;if(!C)return cover(mu,L,grp);const 
  const pM=pm(mu),pL=pm(L),at2=(v,x)=>Number.isInteger(x)&&x>=-50&&x<=50?v[x+50]:0,gt2=(v,x)=>{let t=0;for(let i=0;i<101;i++)if(i-50>x)t+=v[i];return t};
  const push=at2(pM,L),push0=at2(pL,L),h=(1-push0)/2+gt2(pM,L)-gt2(pL,L);return {h,push,a:1-h-push}}
 function wxText(g){const w=g.weather;if(!w)return g.roof==='dome'?'dome':g.roof==null&&!(g.venue&&g.venue.outdoor)?'retractable roof':'forecast loading';return `${w.temp}° · ${w.wind} mph${w.precip_pct>=50?' · rain '+w.precip_pct+'%':''}`}
-function injHTML(g){const I=g.injuries||{},h=I.home||[],a=I.away||[];
- if(!h.length&&!a.length)return `<p class="note">Injury report: none posted for this week yet (reports run Wednesday to Friday). Refresh then and the model prices each absence by snap share and position.</p>`;
- const sum=l=>l.reduce((s,x)=>s+mktPts(x),0);const li=(t,l,side)=>`<p class="small"><b>${esc(t)}</b>: ${l.map(x=>`${esc(x.name)} (${esc(x.pos)}, ${esc(x.status)}, ${Math.round(x.snap*100)}% snaps, ${mktPts(x).toFixed(1)})`).join('; ')||'none'} <button data-inj="${side}" data-v="${sum(l).toFixed(1)}" data-g="${esc(g.game_id)}">Apply ${sum(l).toFixed(1)} pts</button></p>`;
- return `<h3 style="margin-top:0">Injury report</h3>${li(g.away,a,'aInj')}${li(g.home,h,'hInj')}<p class="note">Each number is what the closing market typically moves for that absence (a full-time receiver ≈ 0.7 pts, running back 0.7, defensive lineman 0.6, linebacker 0.5, offensive lineman 0.3, defensive back 0.3, tight end about 0), scaled by snap share and status. By the time the official report posts, most of this is already in the line: in 2016–2026 tests, injury differences showed no edge against the closing line. Apply only for news your book hasn't reacted to yet.</p>`}
+function injHTML(g){const R=injFor(g),h=R.home,a=R.away;
+ const srcLine=R.live?`Source: ${esc(R.src)} live feed, updated ${esc(ago(R.ts))}${LIVEINJ&&LIVEINJ.errs&&LIVEINJ.errs.length?' (ESPN unreachable, used Sleeper)':''}. Game designations only (Out, Doubtful, Questionable); healthy scratches show up only once inactives post.`
+  :R.cur?`Source: official report via nflverse (week ${D.injury_week}).`:'';
+ if(!h.length&&!a.length){
+  if(R.live||R.cur)return `<h3 style="margin-top:0">Injury report</h3><p class="note">No game designations for either team. ${srcLine}</p>`;
+  const why=LIVEINJ&&LIVEINJ.failed?'The live feeds (ESPN, Sleeper) could not be reached from this phone.':INJBUSY?'Loading the live report…':'Press Refresh injuries to pull the live report.';
+  return `<h3 style="margin-top:0">Injury report</h3><p class="note warnline"><b>Not available yet, not "no injuries".</b> The official week ${D.week} reports haven't reached our data source (nflverse has week ${D.injury_week??'—'}). ${why} Teams post reports Monday to Wednesday on short weeks, Wednesday to Friday otherwise.</p>`}
+ const sum=l=>l.reduce((s,x)=>s+mktPts(x),0);const li=(t,l,side)=>`<p class="small"><b>${esc(t)}</b>: ${l.map(x=>`${esc(x.name)} (${esc(x.pos)}, ${esc(x.status)}, ${x.matched===false?'snap share unknown':Math.round(x.snap*100)+'% snaps'}, ${mktPts(x).toFixed(1)})`).join('; ')||'none'} <button data-inj="${side}" data-v="${sum(l).toFixed(1)}" data-g="${esc(g.game_id)}">Apply ${sum(l).toFixed(1)} pts</button></p>`;
+ return `<h3 style="margin-top:0">Injury report</h3><p class="note" style="margin-top:0">${srcLine}</p>${li(g.away,a,'aInj')}${li(g.home,h,'hInj')}<p class="note">Each number is what the closing market typically moves for that absence (a full-time receiver ≈ 0.7 pts, running back 0.7, defensive lineman 0.6, linebacker 0.5, offensive lineman 0.3, defensive back 0.3, tight end about 0), scaled by snap share and status. By the time the official report posts, most of this is already in the line: in 2016–2026 tests, injury differences showed no edge against the closing line. Apply only for news your book hasn't reacted to yet.</p>`}
 let RK=null;
 function ranks(){if(RK)return RK;const mk=(k,dir)=>Object.fromEntries([...D.teams].sort((a,b)=>dir*(b[k]-a[k])).map((t,i)=>[t.team,i+1]));
  RK={op:mk('off_pass',1),or:mk('off_rush',1),dp:mk('def_pass',-1),dr:mk('def_rush',-1),n:D.teams.length};return RK}
@@ -648,7 +690,9 @@ function renderHealth(){if(!D||!$('#hlth'))return;const H=D.health||{},sd=H.seas
  const stop=n>=150&&w/n<.51,wk=exposure();
  const rows=[['Model',`${esc(D.model_version||'v1.0')}${D.built_at?' · rebuilt '+esc(ago(Date.parse(D.built_at))):D.generated?' · built '+esc(D.generated):''}`],
   ['Results data',`through week ${D.data_through?D.data_through.week:'?'} (${D.data_through?D.data_through.games:'?'} games this season)`],
-  ['Injury report',H.injury_report_week==null?'—':H.injury_report_week>=D.week?`week ${H.injury_report_week} posted`:`week ${D.week} report not posted yet (usually Wednesday); showing week ${H.injury_report_week}`],
+  ['Injury report',(()=>{const nv=D.injury_week==null?'nflverse: none this season':D.injury_week>=D.week?`nflverse: week ${D.injury_week} posted`:`nflverse: behind (week ${D.injury_week} only)`;
+    const L=LIVEINJ;const lv=!L?(injStale()?'live feed: not loaded (press Refresh injuries)':''):L.failed?'live feed: ESPN and Sleeper unreachable':`live feed: ${L.src}, ${ago(L.ts)}`;
+    const t=[nv,lv].filter(Boolean).join(' · ');return injStale()&&(!LIVEINJ||LIVEINJ.failed)?`<b class="neg">${esc(t)}</b>`:esc(t)})()],
   ['Odds',lvT?`pulled ${esc(ago(lvT))}`:'not pulled yet: press Refresh lines'],
   ['Weather',wx&&wx.ts?`forecast loaded ${esc(ago(wx.ts))}`:'forecast not loaded'],
   ['Spread rule, this season',`${rc(sd.spread&&sd.spread.total)}${pctw(sd.spread&&sd.spread.total)} · need 52.4%`],
@@ -922,7 +966,7 @@ $('#expLog').addEventListener('click',exportLog);
 $('#wxStart').addEventListener('click',wxRun);$('#wxDl').addEventListener('click',wxDownload);$('#wxClear').addEventListener('click',async()=>{if(WXRUN)return;await WXDB.open();await WXDB.clear();wxEstimate();toast('Saved forecasts cleared')});
 $('#mbList').addEventListener('change',e=>{const k=e.target.dataset.bk;if(!k)return;const m=myBooks();e.target.checked?m.add(k):m.delete(k);MYB=[...m];LS.set('nflats_books',MYB);render()});
 $('#hStart').addEventListener('click',hRun);$('#hDl').addEventListener('click',hDownload);$('#hFrom').addEventListener('change',hEstimate);$('#hTo').addEventListener('change',hEstimate);$('#hKind').addEventListener('change',hEstimate);
-$('#hClear').addEventListener('click',async()=>{if(HRUN)return;await HDB.open();await HDB.clear();hEstimate();toast('Saved line history cleared')});$('#lockNow').addEventListener('click',()=>{try{localStorage.removeItem('nflats_lockkey')}catch(e){}location.reload()});$('#wRefresh').addEventListener('click',refreshWeather);
+$('#hClear').addEventListener('click',async()=>{if(HRUN)return;await HDB.open();await HDB.clear();hEstimate();toast('Saved line history cleared')});$('#lockNow').addEventListener('click',()=>{try{localStorage.removeItem('nflats_lockkey')}catch(e){}location.reload()});$('#wRefresh').addEventListener('click',refreshWeather);$('#iRefresh').addEventListener('click',()=>refreshInjuries(true));
 $('#bkExport').addEventListener('click',exportBackup);$('#bkImport').addEventListener('change',e=>{if(e.target.files[0])importBackup(e.target.files[0])});
 $('#ofeed').addEventListener('click',e=>{if(!$('#okey').value.trim()){e.preventDefault();toast('Enter your API key first')}});
 $('#opaste').addEventListener('paste',()=>setTimeout(()=>{const v=$('#opaste').value.trim();if(v)loadFeed(v,'paste')},0));
@@ -950,6 +994,7 @@ getWeek().then(d=>{D=d;
  SNAPS=(LS.get('nflats_odds_'+D.season+'_'+D.week,{snaps:[]}).snaps)||[];
  const last=LS.get('nflats_live_'+D.season+'_'+D.week,null);if(last&&last.txt){try{LIVE=parseFeed(last.txt).out;$('#ostat').textContent='Showing your last odds pull ('+ago(Object.values(LIVE)[0].ts)+'). Pull again for fresh prices.'}catch(e){}}
  render();renderRatings();renderBacktest();BETS=LS.get('nflats_bets',[]);renderLog();hEstimate();wxEstimate();renderHealth();renderSeason();
+ LIVEINJ=LS.get('nflats_injlive',null);if(LIVEINJ&&(LIVEINJ.season!==D.season||LIVEINJ.week!==D.week))LIVEINJ=null;refreshInjuries(false);
  if(!wx||Date.now()-wx.ts>3*3600e3)setTimeout(()=>refreshWeather(true).catch(()=>{}),400);
  $('#store').textContent='Saved in this browser. Use Download backup now and then, or if you switch browsers.';
  const cr=LS.get('nflats_credits',null);if(cr&&!Object.keys(LIVE).length)$('#ostat').textContent=`Last refresh ${ago(cr.ts)} · ${cr.rem} credits left.`;
