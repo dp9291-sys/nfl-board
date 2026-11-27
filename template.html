@@ -457,7 +457,8 @@ function parseFeed(txt){let j;try{j=JSON.parse(txt)}catch(e){throw new Error('Th
  const evs=Array.isArray(j)?j:Array.isArray(j.data)?j.data:null;if(!evs)throw new Error('No games found in that feed.');
  const out={};let maxTs=0,matched=0;
  for(const ev of evs){const h=TEAMN[ev.home_team],a=TEAMN[ev.away_team];if(!h||!a)continue;
-  const g=D.games.find(x=>(x.home===h&&x.away===a)||(x.home===a&&x.away===h));if(!g)continue;matched++;
+  const g=D.games.find(x=>(x.home===h&&x.away===a)||(x.home===a&&x.away===h));if(!g)continue;
+  if(started(g)||Date.parse(ev.commence_time)<=Date.now())continue;/* in-game prices: never priced by this pre-game model */matched++;
   const books=[];
   for(const bk of (ev.bookmakers||[])){let L=null,oh=null,oa=null,tot=null,tu=null;
    const t=Date.parse(bk.last_update||'');if(t>maxTs)maxTs=t;
@@ -507,7 +508,7 @@ function logDecisions(source){try{const L=LS.get('nflats_declog',[]);
   return {id:g.game_id,market:r.M,line:r.L,side:r.side,book:r.book,odds:r.side==='home'?r.oh:r.oa,lean:+r.lean.toFixed(2),call:r.tag==='a'?'bet':'pass',stake:+r.stake.toFixed(2),
    under:u.on?{bet:!!u.bet,total:u.T,odds:u.o,book:u.book,wind:u.wind,stake:+(u.stake||0).toFixed(2)}:null}})});
  while(L.length>300)L.shift();LS.set('nflats_declog',L)}catch(e){}}
-function loadFeed(txt,source){try{const {out,ts,matched}=parseFeed(txt);LIVE=out;if(source!=='saved')LS.set('nflats_pulled_'+D.season+'_'+D.week,Date.now());
+function loadFeed(txt,source){try{const {out,ts,matched}=parseFeed(txt);const prev=LIVE;LIVE=out;for(const g of D.games)if(started(g)&&prev[g.game_id]&&!LIVE[g.game_id])LIVE[g.game_id]=prev[g.game_id];if(source!=='saved')LS.set('nflats_pulled_'+D.season+'_'+D.week,Date.now());
   const sn={ts,g:Object.fromEntries(Object.entries(out).map(([k,v])=>[k,{L:v.cons,tot:v.tot,pin:v.pin}]))};
   if(!SNAPS.length||SNAPS[SNAPS.length-1].ts!==ts){SNAPS.push(sn);saveSnaps()}
   LS.set('nflats_live_'+D.season+'_'+D.week,{txt:txt.length<400000?txt:null});
@@ -635,13 +636,14 @@ function calc(g){
  const evH=p.h*payout(oh)-p.a,evA=p.a*payout(oa)-p.h;ev=side==='home'?evH:evA;
  const pw=side==='home'?p.h:p.a,o=side==='home'?oh:oa;
  let worse=false;if(M!=null&&L!==M){const qc=cover2(proj,M,g.pmf_group,M),evC=side==='home'?qc.h*payout(-110)-qc.a:qc.a*payout(-110)-qc.h;worse=ev<evC-.005}
- const tag=Math.abs(lean)>=R.thr&&!worse?'a':'pass';
+ const st=started(g),tag=Math.abs(lean)>=R.thr&&!worse&&!st?'a':'pass';
  const rawStake=tag==='a'?S.bank*Math.min(R.cap,S.kf*R.edge/payout(o)):0,fac=expoFac(g),stake=rawStake*fac;
- return{stats,proj,M,L,news,qbNews,inj,other,stAdj,p,ev,side,pw,stake,rawStake,fac,oh,oa,tag,evH,evA,book,lv,lean,worse:worse&&Math.abs(lean)>=R.thr}
+ return{stats,proj,M,L,news,qbNews,inj,other,stAdj,p,ev,side,pw,stake,rawStake,fac,oh,oa,tag,evH,evA,book,lv,lean,started:st,worse:worse&&Math.abs(lean)>=R.thr&&!st}
 }
 
 const NICK=Object.fromEntries(Object.entries(TEAMN).map(([n,a])=>[a,n.split(' ').pop()]));
 const N=t=>NICK[t]||t;
+function started(g){try{return Date.now()>=koDate(g).getTime()}catch(e){return false}}
 function koDate(g){const [y,m,d]=g.gameday.split('-').map(Number),[hh,mm]=g.gametime.split(':').map(Number);
  const sun=(mon,n)=>{const f=new Date(Date.UTC(y,mon,1)).getUTCDay();return 1+(7-f)%7+7*(n-1)};
  const t=Date.UTC(y,m-1,d),dst=t>=Date.UTC(y,2,sun(2,2))&&t<Date.UTC(y,10,sun(10,1));return new Date(Date.UTC(y,m-1,d,hh+(dst?4:5),mm))}
@@ -767,6 +769,7 @@ function nBets(){return D.games.reduce((n,g)=>n+(calc(g).tag==='a'?1:0)+(totCalc
 function totCalc(g){const w=g.weather,out={on:false};const outdoor=g.venue&&g.venue.outdoor!=null?g.venue.outdoor:g.roof==='outdoors';
  if(!outdoor||!w||w.wind==null)return out;out.wind=w.wind;if(w.wind<UND.wind)return out;
  let hrs=99,age=99;try{hrs=(koDate(g)-Date.now())/36e5}catch(e){}const wx=LS.get('nflats_wx_'+D.season+'_'+D.week,null);if(wx&&wx.ts)age=(Date.now()-wx.ts)/36e5;
+ if(hrs<=0){out.started=true;return out}
  if(hrs>UND.hours||age>UND.fresh){out.watch=true;out.hrs=hrs;out.age=age;return out}
  const lv=LIVE[g.game_id],mkt=lv&&lv.tot!=null?lv.tot:g.total_line;let T=null,o=-110,book=null;
  if(lv&&lv.books.length){const mine=myBooks();let best=null;for(const b of lv.books){if(b.tot==null||!mine.has(b.key))continue;const pr=b.tu??-110;if(!best||b.tot>best.tot||(b.tot===best.tot&&payout(pr)>payout(best.pr)))best={tot:b.tot,pr,t:b.title}}if(best){T=best.tot;o=best.pr;book=best.t}}
@@ -780,7 +783,8 @@ function rowHTML(g,r){
  const meta=[g.div?'Division':'',wxText(g),g.total_line?'O/U '+g.total_line:''].filter(Boolean).join(' · ');
  let verdict,sub,extra='';const u=totCalc(g);const noLine=!r.lv&&(adj(g).book==null||adj(g).book==='')&&g.spread_line==null;
  const uLine=`Under ${u.T} ${odds(u.o)}${u.book?' at '+u.book:''}${u.stake>0?' · stake $'+u.stake.toFixed(0):''} · wind ${u.wind} mph`;
- if(noLine){verdict='No line yet';sub='Press Refresh lines once books post this game'}
+ if(r.started){verdict='Game started';sub=`Pre-game model only: in-game lines aren't priced. Pre-game call was ${Math.abs(r.lean)>=(D.rule||{thr:.5}).thr?'a bet on '+N(pickT):'a pass'} (lean ${leanTxt(r.lean)} pts)${u.started?`; the wind under (${u.wind} mph) was a pre-game bet only at the pre-kickoff total`:''}`}
+ else if(noLine){verdict='No line yet';sub='Press Refresh lines once books post this game'}
  else if(r.tag==='pass'){verdict=r.worse?'Pass at your books':'Pass';sub=r.worse?`Market is ${pickLbl(g,r.side,r.M)}; your best is ${pickLbl(g,r.side,r.L)}`:`Lean ${leanTxt(r.lean)} pts; a bet needs ${(D.rule||{thr:.5}).thr}`}
  else{verdict=`Bet ${N(pickT)} ${fmtS(pl)}`;sub=`${odds(o)}${r.book?' at '+r.book:(r.lv?' at the consensus (none of your books lists this game)':'')}${r.stake>0?' · stake $'+r.stake.toFixed(0)+(r.fac<.999?' (cut for exposure cap)':''):''}`}
  if(!noLine&&u.bet){if(r.tag==='a')extra=`Also bet ${uLine}`;else{extra=`Spread: ${verdict.toLowerCase()} (${sub.charAt(0).toLowerCase()+sub.slice(1)})`;verdict=`Bet Under ${u.T}`;sub=uLine.replace(/^Under \S+ /,'')}}
